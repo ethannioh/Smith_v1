@@ -160,7 +160,7 @@
 <body>
   <div class="wrap">
     <h1>Compact L-Match & Smith Chart Tool</h1>
-    <div class="sub">全面支援 L(綠) / C(紫) / R(橘) 與 理想變壓器1:N(粉) 拖曳。右上角顯示即時阻抗表。</div>
+    <div class="sub">全面支援 L(綠) / C(紫) / R(橘) 與 理想變壓器1:N(粉) 拖曳。元件列表新增節點 Q 值顯示。</div>
 
     <div class="layout">
       <div class="left-panel">
@@ -464,7 +464,8 @@
       else if (type.endsWith('R')) compStr = 'R';
       else if (type === 'transformer') compStr = '1:N';
       
-      const desc = type === 'transformer' ? `N = ${fmt(value, 3)}` : `${compStr} = ${fmt(value, 3)} ${unit}`;
+      // 預覽標籤四捨五入到 2 位
+      const desc = type === 'transformer' ? `N = ${fmt(value, 2)}` : `${compStr} = ${fmt(value, 2)} ${unit}`;
 
       return { ...move, type, valSI, unit, value, kindStr, desc };
     }
@@ -519,7 +520,17 @@
             const zNorm = gammaToZNorm(c.gamma1);
             const Z = { re: zNorm.re * z0, im: zNorm.im * z0 };
             const sign = Z.im >= 0 ? '+' : '-';
-            const zStr = `Z = ${fmt(Z.re, 3)} ${sign} j${fmt(Math.abs(Z.im), 3)} Ω`;
+            
+            // 計算 Q 值
+            let Q = 0;
+            if (Math.abs(Z.re) > 1e-9) {
+                Q = Math.abs(Z.im) / Math.abs(Z.re);
+            } else if (Math.abs(Z.im) > 1e-9) {
+                Q = Infinity;
+            }
+            const qStr = Number.isFinite(Q) ? fmt(Q, 2) : '∞';
+            
+            const zStr = `Z = ${fmt(Z.re, 3)} ${sign} j${fmt(Math.abs(Z.im), 3)} Ω | Q = ${qStr}`;
 
             li.innerHTML = `
               <div style="display:flex; flex-direction:column; gap:2px;">
@@ -550,10 +561,10 @@
       const prefix = kind === 'Series' ? '串聯' : '並聯';
       if (kind === 'Series') {
           const X = val * z0;
-          return X > 0 ? `${prefix} L=${fmt((X/w)*1e9, 3)}nH` : `${prefix} C=${fmt((-1/(w*X))*1e12, 3)}pF`;
+          return X > 0 ? `${prefix} L=${fmt((X/w)*1e9, 2)}nH` : `${prefix} C=${fmt((-1/(w*X))*1e12, 2)}pF`;
       } else {
           const B = val / z0;
-          return B > 0 ? `${prefix} C=${fmt((B/w)*1e12, 3)}pF` : `${prefix} L=${fmt((-1/(w*B))*1e9, 3)}nH`;
+          return B > 0 ? `${prefix} C=${fmt((B/w)*1e12, 2)}pF` : `${prefix} L=${fmt((-1/(w*B))*1e9, 2)}nH`;
       }
     }
 
@@ -760,11 +771,11 @@
         
         let labelStr = '';
         if (comp.type === 'transformer') {
-            labelStr = `N=${fmt(comp.value, 2)}`;
+            labelStr = `N=${fmt(comp.value, 2)}`; // 四捨五入到 2 位
         } else {
             let compStr = comp.type.endsWith('L') ? 'L' : (comp.type.endsWith('C') ? 'C' : 'R');
             let unitStr = comp.unit === 'ohm' ? 'Ω' : (comp.unit === 'kOhm' ? 'kΩ' : comp.unit);
-            labelStr = `${compStr}=${fmt(comp.value, 2)}${unitStr}`;
+            labelStr = `${compStr}=${fmt(comp.value, 2)}${unitStr}`; // 四捨五入到 2 位
         }
         
         ctx.save();
@@ -884,7 +895,7 @@
       drawChainAndPreview();
       drawBasePoint();
 
-      // 繪製起點與終點的實際阻抗值標籤 (表格)
+      // 繪製左下角的起點與終點阻抗資訊表
       const z0 = Math.max(1e-12, parseFloat(z0El.value) || 50);
       const activeGamma = elementPreview ? elementPreview.gamma1 : getEffectiveGamma();
 
@@ -897,13 +908,12 @@
       const endText = fmtComplex(eZ, 'Ω');
 
       ctx.save();
-      const boxW = 250;
-      const boxH = 64;
-      const padding = 14;
-      const bx = W - boxW - 20; 
-      const by = 20;
+      const boxW = 240;
+      const boxH = 60;
+      const padding = 12;
+      const bx = 16; 
+      const by = H - boxH - 16;
 
-      // 繪製半透明圓角背景
       ctx.fillStyle = 'rgba(18, 25, 51, 0.9)';
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
       ctx.lineWidth = 1.5;
@@ -920,11 +930,9 @@
       ctx.lineTo(bx, by + r);
       ctx.quadraticCurveTo(bx, by, bx + r, by);
       ctx.closePath();
-      
       ctx.fill();
       ctx.stroke();
 
-      // 分隔線
       ctx.beginPath();
       ctx.moveTo(bx + padding, by + boxH/2);
       ctx.lineTo(bx + boxW - padding, by + boxH/2);
@@ -932,22 +940,20 @@
       ctx.stroke();
 
       ctx.textBaseline = 'middle';
-
-      // 起點
-      ctx.font = 'bold 14px Arial';
+      
+      ctx.font = 'bold 13px Arial';
       ctx.textAlign = 'left';
       ctx.fillStyle = '#ff6b6b';
       ctx.fillText('起點 Z', bx + padding, by + boxH/4);
-      ctx.font = '14px monospace';
+      ctx.font = '13px monospace';
       ctx.textAlign = 'right';
       ctx.fillText(startText, bx + boxW - padding, by + boxH/4);
 
-      // 終點
-      ctx.font = 'bold 14px Arial';
+      ctx.font = 'bold 13px Arial';
       ctx.textAlign = 'left';
       ctx.fillStyle = '#7bdff2';
       ctx.fillText('終點 Z', bx + padding, by + boxH * 3/4);
-      ctx.font = '14px monospace';
+      ctx.font = '13px monospace';
       ctx.textAlign = 'right';
       ctx.fillText(endText, bx + boxW - padding, by + boxH * 3/4);
 
@@ -972,7 +978,7 @@
       
       let Q = 0;
       if (Math.abs(Z.re) > 1e-9) {
-          Q = Math.abs(Z.im) / Z.re;
+          Q = Math.abs(Z.im) / Math.abs(Z.re);
       } else if (Math.abs(Z.im) > 1e-9) {
           Q = Infinity;
       }
