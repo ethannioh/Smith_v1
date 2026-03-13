@@ -113,6 +113,31 @@
     .badge.res { background: var(--r-color); color: #000; }
     .badge.tra { background: var(--t-color); color: #000; }
 
+    /* 自動匹配選項的卡片樣式 */
+    .match-item {
+      padding: 6px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+      margin-bottom: 6px;
+      border: 1px solid transparent;
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--text);
+      font-size: 12px;
+    }
+    .match-item:hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .match-item.selected {
+      background: rgba(123, 223, 242, 0.15);
+      border: 1px solid var(--accent);
+    }
+    .match-title {
+      font-weight: bold;
+      color: var(--accent);
+      margin-bottom: 2px;
+    }
+
     canvas {
       width: 100%; height: 100%; max-height: 800px; aspect-ratio: 1 / 1;
       display: block; margin: 0 auto;
@@ -135,7 +160,7 @@
 <body>
   <div class="wrap">
     <h1>Compact L-Match & Smith Chart Tool</h1>
-    <div class="sub">全面支援 L(綠) / C(紫) / R(橘) 與 理想變壓器1:N(粉) 拖曳。終端自動計算 Q 值與阻抗預覽。</div>
+    <div class="sub">全面支援 L(綠) / C(紫) / R(橘) 與 理想變壓器1:N(粉) 拖曳。終端自動計算 Q 值與阻抗預覽。支援點擊清單 Highligh 特定的匹配解。</div>
 
     <div class="layout">
       <div class="left-panel">
@@ -214,10 +239,12 @@
           <div class="grid grid-4" style="align-items: end;">
             <div class="field"><label>目標 R (Ω)</label><input id="matchTargetR" type="number" step="any" value="50" /></div>
             <div class="field"><label>目標 X (Ω)</label><input id="matchTargetX" type="number" step="any" value="0" /></div>
-            <button id="suggestMatchBtn" class="action">尋找</button>
+            <button id="suggestMatchBtn" class="action">尋找解</button>
             <button id="clearMatchBtn" class="secondary">清除</button>
           </div>
-          <div id="matchSuggestions" class="note" style="margin-top:6px; white-space:pre-line; color: var(--accent); max-height: 70px; overflow-y: auto;">尚未產生建議。</div>
+          <div id="matchSuggestions" style="margin-top:8px; max-height: 120px; overflow-y: auto;">
+            <div class="note" style="margin-top:0;">尚未產生建議。</div>
+          </div>
         </div>
 
         <div class="card results" style="flex-grow: 1;">
@@ -303,7 +330,9 @@
     let components = []; 
     let dragging = false;
     let elementPreview = null; 
+    
     let matchPreviewPaths = [];
+    let selectedMatchIdx = -1; // 記錄目前被點擊高亮的解決方案 Index
 
     // --- Complex Math Functions ---
     function cAdd(a, b) { return { re: a.re + b.re, im: a.im + b.im }; }
@@ -595,13 +624,46 @@
     function renderMatchSuggestions() {
       const sols = solveLMatch();
       matchPreviewPaths = sols;
+      selectedMatchIdx = -1; // 預設不選擇
+      
       if (!sols.length) {
-        matchSuggestionsEl.textContent = '無法計算兩元件 L-Match。';
+        matchSuggestionsEl.innerHTML = '<div class="note" style="margin-top:0;">無法計算兩元件 L-Match，請檢查目標值。</div>';
         render(); return;
       }
-      const text = sols.map(sol => `${sol.title} ${sol.stepsText.join(' ➔ ')}`).join('\n');
-      matchSuggestionsEl.textContent = text;
+
+      matchSuggestionsEl.innerHTML = '';
+      sols.forEach((sol, idx) => {
+        const div = document.createElement('div');
+        div.className = 'match-item';
+        div.innerHTML = `
+          <div class="match-title">${sol.title}</div>
+          <div>${sol.stepsText.join(' ➔ ')}</div>
+        `;
+        div.onclick = () => {
+          // Toggle selection
+          if (selectedMatchIdx === idx) {
+              selectedMatchIdx = -1;
+          } else {
+              selectedMatchIdx = idx;
+          }
+          updateMatchSuggestionsUI();
+          render();
+        };
+        matchSuggestionsEl.appendChild(div);
+      });
+      updateMatchSuggestionsUI();
       render();
+    }
+
+    function updateMatchSuggestionsUI() {
+      const items = matchSuggestionsEl.querySelectorAll('.match-item');
+      items.forEach((item, idx) => {
+        if (idx === selectedMatchIdx) {
+          item.classList.add('selected');
+        } else {
+          item.classList.remove('selected');
+        }
+      });
     }
 
     // --- Drawing ---
@@ -653,7 +715,7 @@
       ctx.fillText('0', cx - R + 12, cy - 8); ctx.fillText('∞', cx + R - 12, cy - 8);
       ctx.fillText('+jX', cx, cy - R - 10); ctx.fillText('-jX', cx, cy + R + 18);
 
-      // 繪製格線數值標籤 (如果勾選)
+      // 繪製格線數值標籤
       if (showLabelsCb.checked) {
           const z0 = Math.max(1e-12, parseFloat(z0El.value) || 50);
 
@@ -663,7 +725,6 @@
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
 
-          // 繪製 R 圓標籤
           rMajor.forEach(r => {
               const gre = (r - 1) / (r + 1);
               const px = cx + R * gre;
@@ -674,26 +735,19 @@
               ctx.fillText(displayR, px - 8, cy + 12);
           });
 
-          // 繪製 X 圓弧標籤
           xMajor.forEach(x => {
               const gre = (x * x - 1) / (x * x + 1);
               const gim = (2 * x) / (x * x + 1);
               const displayX = Number((x * z0).toFixed(2)).toString();
               
-              // 上半部 +jX
-              let px = cx + R * gre;
-              let py = cy - R * gim;
+              let px = cx + R * gre, py = cy - R * gim;
               let ux = -gre, uy = gim; 
-              
               ctx.lineWidth = 2.5; ctx.strokeStyle = '#0b1020';
               ctx.strokeText('j' + displayX, px + ux * 16, py + uy * 16);
               ctx.fillText('j' + displayX, px + ux * 16, py + uy * 16);
 
-              // 下半部 -jX
-              px = cx + R * gre;
-              py = cy + R * gim;
+              px = cx + R * gre; py = cy + R * gim;
               ux = -gre; uy = -gim;
-              
               ctx.strokeText('-j' + displayX, px + ux * 16, py + uy * 16);
               ctx.fillText('-j' + displayX, px + ux * 16, py + uy * 16);
           });
@@ -720,7 +774,6 @@
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
         
-        // 增加黑底白邊效果
         ctx.lineWidth = 3.5;
         ctx.strokeStyle = '#0b1020';
         ctx.strokeText(labelStr, midP.x + 8, midP.y);
@@ -770,7 +823,6 @@
           const p = gammaToCanvas(g);
           if (idx === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
         });
-        // 預覽採用虛線顯示
         ctx.setLineDash([5, 5]);
         ctx.strokeStyle = pathColorHex; ctx.lineWidth = 3.5; ctx.stroke();
         ctx.setLineDash([]);
@@ -783,25 +835,47 @@
         ctx.restore();
       }
 
-      // 繪製 Auto Match 的建議路徑
+      // 繪製 Auto Match 的建議路徑 (包含點擊高亮邏輯)
       if (matchPreviewPaths.length > 0) {
-        const colors = ['rgba(255,173,102,0.85)', 'rgba(123,223,242,0.85)'];
+        const colors = ['#ffad66', '#7bdff2', '#c084fc', '#4ade80']; // 4 種區分顏色
         matchPreviewPaths.forEach((sol, idx) => {
+          
+          const isSelected = (selectedMatchIdx === idx);
+          const hasSelection = (selectedMatchIdx !== -1);
+          
+          // 如果有選中某條，非選中的那些會變得很透明 (Dim)
+          let alpha = 0.85;
+          if (hasSelection && !isSelected) alpha = 0.15;
+          if (isSelected) alpha = 1.0;
+
           const color = colors[idx % colors.length];
+
+          ctx.save();
+          ctx.globalAlpha = alpha;
+          
           sol.paths.forEach((path, pidx) => {
             if(!path || path.length < 2) return;
-            ctx.save(); ctx.beginPath();
+            ctx.beginPath();
             path.forEach((g, k) => {
               const p = gammaToCanvas(g);
               if (k === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
             });
-            ctx.strokeStyle = color; ctx.lineWidth = 3; 
-            ctx.setLineDash(pidx === 0 ? [6, 6] : []); ctx.stroke(); ctx.restore();
+            ctx.strokeStyle = color; 
+            ctx.lineWidth = isSelected ? 4.5 : 3; // 選中時稍微加粗
+            ctx.setLineDash(pidx === 0 ? [6, 6] : []); 
+            ctx.stroke(); 
           });
+
           // 目標終點
           const targ = gammaToCanvas(zNormToGamma(sol.zEnd));
-          ctx.beginPath(); ctx.arc(targ.x, targ.y, 6, 0, Math.PI*2);
+          ctx.beginPath(); ctx.arc(targ.x, targ.y, isSelected ? 7 : 5, 0, Math.PI*2);
           ctx.fillStyle = color; ctx.fill();
+          
+          if (isSelected) {
+            ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; ctx.stroke();
+          }
+
+          ctx.restore();
         });
       }
     }
@@ -875,7 +949,6 @@
                y: (evt.clientY - rect.top) * (canvas.height / rect.height) };
     }
 
-    // 處理手動選擇元件類別時切換對應單位
     elemTypeEl.addEventListener('change', () => {
         const t = elemTypeEl.value;
         if (t.endsWith('L')) elemUnitEl.value = 'nH';
@@ -1015,13 +1088,15 @@
     resetBtn.addEventListener('click', () => {
       realEl.value = '25.000'; imagEl.value = '25.000'; z0El.value = '50.000'; freqEl.value = '2.450';
       document.querySelector('input[name="mouseMode"][value="point"]').checked = true;
-      components = []; matchPreviewPaths = []; matchSuggestionsEl.textContent = '尚未產生建議。';
+      components = []; matchPreviewPaths = []; matchSuggestionsEl.innerHTML = '<div class="note" style="margin-top:0;">尚未產生建議。</div>';
       updateUIList(); applyBaseInputs();
     });
 
     suggestMatchBtn.addEventListener('click', renderMatchSuggestions);
     clearMatchBtn.addEventListener('click', () => { 
-        matchPreviewPaths = []; matchSuggestionsEl.textContent = '尚未產生建議。'; render(); 
+        matchPreviewPaths = []; selectedMatchIdx = -1;
+        matchSuggestionsEl.innerHTML = '<div class="note" style="margin-top:0;">尚未產生建議。</div>'; 
+        render(); 
     });
 
     [elemTypeEl, elemValueEl, elemUnitEl].forEach(el => {
