@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Compact L-Match & Smith Chart Tool</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121933;
+      --text: #eaf0ff;
+      --muted: #aeb9d9;
+      --accent: #7bdff2;
+      --ok: #7ae582;
+      --l-color: #4ade80; /* 電感 綠色 */
+      --c-color: #c084fc; /* 電容 紫色 */
+      --r-color: #fbbf24; /* 電阻 橘色 */
+      --t-color: #ffeaed; /* 變壓器 粉紅色 */
+      --input: #0e1530;
+      --border: rgba(255,255,255,0.12);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, "Noto Sans TC", sans-serif;
+      background: linear-gradient(180deg, #08101f 0%, #111936 100%);
+      color: var(--text);
+      overflow-x: hidden;
+    }
+
+    .wrap {
+      max-width: 1300px;
+      margin: 0 auto;
+      padding: 12px 20px;
+    }
+
+    h1 { margin: 0 0 4px; font-size: 22px; }
+    .sub { color: var(--muted); margin-bottom: 12px; font-size: 13px; }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 460px 1fr;
+      gap: 16px;
+      align-items: stretch;
+    }
+
+    .left-panel { display: flex; flex-direction: column; gap: 10px; }
+
+    .card {
+      background: rgba(18, 25, 51, 0.88);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+
+    h2 { margin: 0 0 8px; font-size: 14px; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 4px;}
+
+    .grid { display: grid; gap: 8px; }
+    .grid-4 { grid-template-columns: repeat(4, 1fr); }
+    .grid-3 { grid-template-columns: 2fr 1fr 1fr; }
+    .grid-3-eq { grid-template-columns: repeat(3, 1fr); }
+    
+    .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 4px; }
+    .field label { color: var(--muted); font-size: 11px; white-space: nowrap; }
+
+    input, select, button {
+      width: 100%; border: 1px solid var(--border);
+      background: var(--input); color: var(--text);
+      border-radius: 6px; padding: 6px 8px; font-size: 12px;
+    }
+
+    button {
+      cursor: pointer; font-weight: bold;
+      background: linear-gradient(180deg, #28408a, #1c2d66);
+      border: 1px solid #3c54a5;
+    }
+    button:hover { filter: brightness(1.2); }
+    button.secondary { background: linear-gradient(180deg, #203158, #16223f); border-color: #2a3d66; }
+    button.action { background: linear-gradient(180deg, #1b5e20, #0f3d13); color: #a5d6a7; border-color: #2e7d32; }
+    button.danger { background: linear-gradient(180deg, #6b2121, #4a1515); color: #ffbaba; border-color: #8e2b2b; }
+
+    .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
+
+    /* 緊湊型結果表 */
+    .results-table {
+      display: grid; grid-template-columns: 45px 1fr 45px 1fr; gap: 4px 8px;
+      font-size: 12px; align-items: center;
+    }
+    .results-table .k { color: var(--muted); font-size: 11px; }
+    .results-table .full-row { grid-column: 2 / 5; }
+
+    .mode-radios {
+      display: flex; gap: 6px; font-size: 12px; flex-wrap: wrap;
+      background: rgba(0,0,0,0.2); padding: 8px; border-radius: 6px; margin-bottom: 10px;
+    }
+    .mode-radios label { cursor: pointer; display:flex; align-items:center; gap: 2px; }
+
+    /* 元件列表樣式 */
+    .comp-list { list-style: none; padding: 0; margin: 6px 0 0; max-height: 120px; overflow-y: auto;}
+    .comp-list li {
+      background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+      padding: 6px 10px; margin-bottom: 6px; border-radius: 6px; font-size: 12px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .comp-list li .badge {
+      display: inline-block; padding: 2px 4px; border-radius: 4px;
+      font-size: 10px; font-weight: bold; margin-right: 6px;
+    }
+    .badge.ind { background: var(--l-color); color: #000; }
+    .badge.cap { background: var(--c-color); color: #000; }
+    .badge.res { background: var(--r-color); color: #000; }
+    .badge.tra { background: var(--t-color); color: #000; }
+
+    canvas {
+      width: 100%; height: 100%; max-height: 800px; aspect-ratio: 1 / 1;
+      display: block; margin: 0 auto;
+      background: radial-gradient(circle at center, rgba(89,122,255,0.1), rgba(0,0,0,0) 55%);
+      border-radius: 12px; cursor: crosshair;
+    }
+
+    .legend {
+      display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;
+      margin-top: 8px; font-size: 12px; color: var(--muted);
+    }
+    .dot {
+      width: 10px; height: 10px; display: inline-block; border-radius: 50%;
+      margin-right: 4px; vertical-align: middle;
+    }
+
+    @media (max-width: 980px) { .layout { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Compact L-Match & Smith Chart Tool</h1>
+    <div class="sub">全面支援 L(綠) / C(紫) / R(橘) 與 理想變壓器1:N(粉) 拖曳。終端自動計算 Q 值與阻抗預覽。</div>
+
+    <div class="layout">
+      <div class="left-panel">
+        
+        <div class="card">
+          <div class="mode-radios">
+            <label><input type="radio" name="mouseMode" value="point" checked> 📍 起點</label>
+            <label><input type="radio" name="mouseMode" value="series"> ➰ 串L/C</label>
+            <label><input type="radio" name="mouseMode" value="shunt"> ➿ 並L/C</label>
+            <label><input type="radio" name="mouseMode" value="seriesR"> 〰 串聯 R</label>
+            <label><input type="radio" name="mouseMode" value="shuntR"> ⸎ 並聯 R</label>
+            <label><input type="radio" name="mouseMode" value="transformer"> 🗜 變壓器 1:N</label>
+            
+            <div style="width:1px; height:16px; background:rgba(255,255,255,0.2); margin: 0 4px;"></div>
+            <label style="color:var(--accent); font-weight:bold;">
+              <input type="checkbox" id="showLabelsCb" checked> 🏷 顯示實際阻抗值(Ω)
+            </label>
+          </div>
+          
+          <div class="grid grid-4">
+            <div class="field"><label>Z0 (Ω)</label><input id="z0" type="number" step="any" value="50" /></div>
+            <div class="field"><label>Freq(G)</label><input id="freq" type="number" step="any" value="2.45" /></div>
+            <div class="field"><label>起點 R</label><input id="realVal" type="number" step="any" value="25" /></div>
+            <div class="field"><label>起點 X</label><input id="imagVal" type="number" step="any" value="25" /></div>
+          </div>
+          <div class="btn-row" style="margin-top:4px;">
+            <button id="applyBtn">更新起點</button>
+            <button id="resetBtn" class="secondary">還原預設</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>匹配網路 (Ladder Network)</h2>
+          <div class="grid grid-3">
+            <div class="field">
+              <label>元件型式</label>
+              <select id="elemType">
+                <option value="seriesL">串聯 L</option>
+                <option value="seriesC">串聯 C</option>
+                <option value="shuntL">並聯 L</option>
+                <option value="shuntC">並聯 C</option>
+                <option value="seriesR">串聯 R</option>
+                <option value="shuntR">並聯 R</option>
+                <option value="transformer">變壓器 (1:N)</option>
+              </select>
+            </div>
+            <div class="field"><label>數值</label><input id="elemValue" type="number" step="any" value="1" /></div>
+            <div class="field">
+              <label>單位</label>
+              <select id="elemUnit">
+                <option value="nH">nH</option><option value="pF">pF</option>
+                <option value="uH">uH</option><option value="fF">fF</option>
+                <option value="ohm">Ω</option><option value="kOhm">kΩ</option>
+                <option value="N">N (匝數比)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-3-eq" style="margin-top: 8px;">
+            <button id="addCompBtn" class="action">➕ 增加</button>
+            <button id="undoCompBtn" class="secondary">↩ 復原</button>
+            <button id="clearAllCompBtn" class="danger">🗑 清空</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div style="font-size: 13px; font-weight: bold; display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 4px;">
+            <span>元件串接列表</span>
+            <span id="compCountText" style="color: var(--accent);">0 / 10</span>
+          </div>
+          <ul class="comp-list" id="compList"></ul>
+        </div>
+
+        <div class="card">
+          <div style="font-size: 13px; font-weight: bold; margin-bottom: 6px; color: var(--accent);">自動 L-Match 匹配 (至目標阻抗)</div>
+          <div class="grid grid-4" style="align-items: end;">
+            <div class="field"><label>目標 R (Ω)</label><input id="matchTargetR" type="number" step="any" value="50" /></div>
+            <div class="field"><label>目標 X (Ω)</label><input id="matchTargetX" type="number" step="any" value="0" /></div>
+            <button id="suggestMatchBtn" class="action">尋找</button>
+            <button id="clearMatchBtn" class="secondary">清除</button>
+          </div>
+          <div id="matchSuggestions" class="note" style="margin-top:6px; white-space:pre-line; color: var(--accent); max-height: 70px; overflow-y: auto;">尚未產生建議。</div>
+        </div>
+
+        <div class="card results" style="flex-grow: 1;">
+          <h2>
+            終端結果 (Terminal Z)
+            <span id="previewIndicator" style="color:var(--ok); font-size:12px; font-weight:normal; display:none;">(拖曳預覽中...)</span>
+          </h2>
+          <div class="results-table">
+            <div class="k">Γ</div><div id="gammaText" class="full-row">-</div>
+            <div class="k">|Γ|</div><div id="gammaMag">-</div>
+            <div class="k">∠Γ</div><div id="gammaAng">-</div>
+            <div class="k">VSWR</div><div id="vswrText">-</div>
+            <div class="k">Q 值</div><div id="qText" style="color: #fbbf24; font-weight:bold;">-</div>
+            <div class="k">Norm z</div><div id="znText" class="full-row">-</div>
+            <div class="k">Z (Ω)</div><div id="zText" class="full-row" style="color:var(--accent); font-weight:bold; font-size:14px;">-</div>
+            <div class="k">Y (S)</div><div id="yText" class="full-row">-</div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="card" style="padding: 10px; display: flex; flex-direction: column;">
+        <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center;">
+            <canvas id="smithCanvas" width="900" height="900"></canvas>
+        </div>
+        <div class="legend">
+          <span><span class="dot" style="background:#ff6b6b"></span>起點</span>
+          <span><span class="dot" style="background:var(--l-color)"></span>電感 L</span>
+          <span><span class="dot" style="background:var(--c-color)"></span>電容 C</span>
+          <span><span class="dot" style="background:var(--r-color)"></span>電阻 R</span>
+          <span><span class="dot" style="background:var(--t-color)"></span>變壓器</span>
+          <span><span class="dot" style="background:rgba(255,173,102,0.85)"></span>匹配建議</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('smithCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const realEl = document.getElementById('realVal');
+    const imagEl = document.getElementById('imagVal');
+    const z0El = document.getElementById('z0');
+    const freqEl = document.getElementById('freq');
+    const applyBtn = document.getElementById('applyBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    
+    const elemTypeEl = document.getElementById('elemType');
+    const elemValueEl = document.getElementById('elemValue');
+    const elemUnitEl = document.getElementById('elemUnit');
+    const addCompBtn = document.getElementById('addCompBtn');
+    const undoCompBtn = document.getElementById('undoCompBtn');
+    const clearAllCompBtn = document.getElementById('clearAllCompBtn');
+    const compListEl = document.getElementById('compList');
+    const compCountText = document.getElementById('compCountText');
+
+    const matchTargetREl = document.getElementById('matchTargetR');
+    const matchTargetXEl = document.getElementById('matchTargetX');
+    const suggestMatchBtn = document.getElementById('suggestMatchBtn');
+    const clearMatchBtn = document.getElementById('clearMatchBtn');
+    const matchSuggestionsEl = document.getElementById('matchSuggestions');
+
+    const gammaText = document.getElementById('gammaText');
+    const gammaMag = document.getElementById('gammaMag');
+    const gammaAng = document.getElementById('gammaAng');
+    const vswrText = document.getElementById('vswrText');
+    const qText = document.getElementById('qText');
+    const znText = document.getElementById('znText');
+    const zText = document.getElementById('zText');
+    const yText = document.getElementById('yText');
+    const previewIndicator = document.getElementById('previewIndicator');
+    const showLabelsCb = document.getElementById('showLabelsCb');
+
+    const W = canvas.width;
+    const H = canvas.height;
+    const cx = W / 2;
+    const cy = H / 2;
+    const R = Math.min(W, H) * 0.45;
+
+    let baseGamma = { re: 0, im: 0 }; 
+    let components = []; 
+    let dragging = false;
+    let elementPreview = null; 
+    let matchPreviewPaths = [];
+
+    // --- Complex Math Functions ---
+    function cAdd(a, b) { return { re: a.re + b.re, im: a.im + b.im }; }
+    function cSub(a, b) { return { re: a.re - b.re, im: a.im - b.im }; }
+    function cInv(a) { const d = a.re*a.re + a.im*a.im; return { re: a.re/d, im: -a.im/d }; }
+    function cDiv(a, b) { const d = b.re*b.re + b.im*b.im; return { re: (a.re*b.re + a.im*b.im)/d, im: (a.im*b.re - a.re*b.im)/d }; }
+    function cAbs(a) { return Math.hypot(a.re, a.im); }
+    function cAngDeg(a) { return Math.atan2(a.im, a.re) * 180 / Math.PI; }
+
+    function fmt(v, digits = 3) {
+      if (!Number.isFinite(v)) return '∞';
+      const av = Math.abs(v);
+      if (av !== 0 && (av >= 1e4 || av < 1e-3)) return v.toExponential(3);
+      return Number(v.toFixed(digits)).toString();
+    }
+    
+    function fmtComplex(a, unit='') {
+      const sign = a.im >= 0 ? '+' : '-';
+      return `${fmt(a.re, 3)} ${sign} j${fmt(Math.abs(a.im), 3)}${unit ? ' ' + unit : ''}`;
+    }
+
+    // --- Component Logic ---
+    function elemValueSI(type, value, unit) {
+      const v = parseFloat(value) || 0;
+      if (type.endsWith('L')) {
+        if (unit === 'uH') return v * 1e-6;
+        if (unit === 'nH') return v * 1e-9;
+        return v * 1e-9;
+      }
+      else if (type.endsWith('C')) {
+        if (unit === 'pF') return v * 1e-12;
+        return v * 1e-15;
+      }
+      else if (type.endsWith('R')) {
+        if (unit === 'kOhm') return v * 1e3;
+        return v; // ohm
+      }
+      else if (type === 'transformer') {
+        return v; // N
+      }
+      return v;
+    }
+
+    function calcMove(startG, type, valSI, freqHz, z0) {
+      const zNorm0 = gammaToZNorm(startG);
+      const yNorm0 = cInv(zNorm0);
+      let zNorm1, yNorm1;
+      const path = [];
+      const N_pts = 60; 
+
+      if (type.startsWith('series') && !type.endsWith('R')) { // Series L/C
+        const w = 2 * Math.PI * freqHz;
+        const X = type.endsWith('L') ? w * valSI : -1 / (w * valSI);
+        const dxNorm = X / z0;
+        zNorm1 = cAdd(zNorm0, { re: 0, im: dxNorm });
+        for (let i = 0; i <= N_pts; i++) path.push(zNormToGamma(cAdd(zNorm0, { re: 0, im: dxNorm * (i / N_pts) })));
+      } 
+      else if (type.startsWith('shunt') && !type.endsWith('R')) { // Shunt L/C
+        const w = 2 * Math.PI * freqHz;
+        const B = type.endsWith('C') ? w * valSI : -1 / (w * valSI);
+        const dbNorm = B * z0;
+        yNorm1 = cAdd(yNorm0, { re: 0, im: dbNorm });
+        zNorm1 = cInv(yNorm1);
+        for (let i = 0; i <= N_pts; i++) path.push(zNormToGamma(cInv(cAdd(yNorm0, { re: 0, im: dbNorm * (i / N_pts) }))));
+      }
+      else if (type === 'seriesR') { // Series R
+        const drNorm = valSI / z0;
+        zNorm1 = cAdd(zNorm0, { re: drNorm, im: 0 });
+        for (let i = 0; i <= N_pts; i++) path.push(zNormToGamma(cAdd(zNorm0, { re: drNorm * (i / N_pts), im: 0 })));
+      }
+      else if (type === 'shuntR') { // Shunt R
+        let dgNorm = valSI < 1e-12 ? 1e12 : z0 / valSI;
+        yNorm1 = cAdd(yNorm0, { re: dgNorm, im: 0 });
+        zNorm1 = cInv(yNorm1);
+        for (let i = 0; i <= N_pts; i++) path.push(zNormToGamma(cInv(cAdd(yNorm0, { re: dgNorm * (i / N_pts), im: 0 }))));
+      }
+      else if (type === 'transformer') { // Ideal Transformer
+        const N2 = valSI * valSI;
+        zNorm1 = { re: zNorm0.re * N2, im: zNorm0.im * N2 };
+        for (let i = 0; i <= N_pts; i++) {
+          const t = 1 + (N2 - 1) * (i / N_pts);
+          path.push(zNormToGamma({ re: zNorm0.re * t, im: zNorm0.im * t }));
+        }
+      }
+
+      return { gamma0: startG, gamma1: zNormToGamma(zNorm1), path };
+    }
+
+    function getEffectiveGamma() {
+      return components.length > 0 ? components[components.length - 1].gamma1 : baseGamma;
+    }
+
+    function recomputeChain() {
+      let currG = baseGamma;
+      const z0 = Math.max(1e-12, parseFloat(z0El.value) || 50);
+      const freqHz = (parseFloat(freqEl.value) || 0) * 1e9;
+
+      for (let i = 0; i < components.length; i++) {
+        const comp = components[i];
+        const move = calcMove(currG, comp.type, comp.valSI, freqHz, z0);
+        comp.gamma0 = move.gamma0;
+        comp.gamma1 = move.gamma1;
+        comp.path = move.path;
+        currG = move.gamma1;
+      }
+    }
+
+    function computeElementPreview() {
+      const type = elemTypeEl.value;
+      const value = parseFloat(elemValueEl.value) || 0;
+      const unit = elemUnitEl.value;
+      const valSI = elemValueSI(type, value, unit);
+      const freqHz = (parseFloat(freqEl.value) || 0) * 1e9;
+      const z0 = Math.max(1e-12, parseFloat(z0El.value) || 50);
+
+      if (freqHz <= 0 || valSI <= 0 || value === 0) return null;
+
+      const startG = getEffectiveGamma();
+      const move = calcMove(startG, type, valSI, freqHz, z0);
+      
+      let kindStr = '';
+      if (type.startsWith('series')) kindStr = 'Series';
+      else if (type.startsWith('shunt')) kindStr = 'Shunt';
+      else if (type === 'transformer') kindStr = 'Ideal 1:N';
+
+      let compStr = '';
+      if (type.endsWith('L')) compStr = 'L';
+      else if (type.endsWith('C')) compStr = 'C';
+      else if (type.endsWith('R')) compStr = 'R';
+      else if (type === 'transformer') compStr = '1:N';
+      
+      const desc = type === 'transformer' ? `N = ${fmt(value, 3)}` : `${compStr} = ${fmt(value, 3)} ${unit}`;
+
+      return { ...move, type, valSI, unit, value, kindStr, desc };
+    }
+
+    function getPathColorHex(type) {
+        if (type.endsWith('L')) return '#4ade80'; // 綠色
+        if (type.endsWith('C')) return '#c084fc'; // 紫色
+        if (type.endsWith('R')) return '#fbbf24'; // 橘色
+        if (type === 'transformer') return '#ffeaed'; // 粉紅色
+        return '#ffffff';
+    }
+
+    function updateComponentUIFromReactance(mode, valAdd) {
+        const z0 = Math.max(1e-12, parseFloat(z0El.value) || 50);
+        const freqHz = (parseFloat(freqEl.value) || 0) * 1e9;
+        const w = 2 * Math.PI * freqHz;
+        
+        let type, L, C;
+        if (mode === 'series') {
+            const X = valAdd * z0;
+            if (X >= 0) { type = 'seriesL'; L = X / w; } 
+            else { type = 'seriesC'; C = -1 / (w * X); }
+        } else {
+            const B = valAdd / z0;
+            if (B >= 0) { type = 'shuntC'; C = B / w; } 
+            else { type = 'shuntL'; L = -1 / (w * B); }
+        }
+        
+        elemTypeEl.value = type;
+        if (type.endsWith('L')) {
+            if (L >= 1e-6) { elemUnitEl.value = 'uH'; elemValueEl.value = fmt(L * 1e6, 3); }
+            else { elemUnitEl.value = 'nH'; elemValueEl.value = fmt(L * 1e9, 3); }
+        } else {
+            if (C >= 1e-12) { elemUnitEl.value = 'pF'; elemValueEl.value = fmt(C * 1e12, 3); }
+            else { elemUnitEl.value = 'fF'; elemValueEl.value = fmt(C * 1e15, 3); }
+        }
+    }
+
+    function updateUIList() {
+        compListEl.innerHTML = '';
+        const z0 = Math.max(1e-12, parseFloat(z0El.value) || 50);
+
+        components.forEach((c, i) => {
+            const li = document.createElement('li');
+            
+            let badgeClass = '';
+            if (c.type.endsWith('L')) badgeClass = 'ind';
+            else if (c.type.endsWith('C')) badgeClass = 'cap';
+            else if (c.type.endsWith('R')) badgeClass = 'res';
+            else if (c.type === 'transformer') badgeClass = 'tra';
+
+            const zNorm = gammaToZNorm(c.gamma1);
+            const Z = { re: zNorm.re * z0, im: zNorm.im * z0 };
+            const sign = Z.im >= 0 ? '+' : '-';
+            const zStr = `Z = ${fmt(Z.re, 3)} ${sign} j${fmt(Math.abs(Z.im), 3)} Ω`;
+
+            li.innerHTML = `
+              <div style="display:flex; flex-direction:column; gap:2px;">
+                <div><span class="badge ${badgeClass}">${c.kindStr}</span> ${c.desc}</div>
+                <div style="font-size:11px; color:var(--accent); font-family: monospace;">${zStr}</div>
+              </div>
+              <div style="font-weight:bold; color:var(--muted); font-size: 13px;">[${i+1}]</div>
+            `;
+            compListEl.appendChild(li);
+        });
+        compCountText.textContent = `${components.length} / 10`;
+    }
+
+    // --- Auto Match Algorithms ---
+    function pathSeriesReactance(zStart, xAdd) {
+      const out = [];
+      for (let i = 0; i <= 60; i++) out.push(zNormToGamma(cAdd(zStart, { re: 0, im: xAdd * (i/60) })));
+      return out;
+    }
+    function pathShuntSusceptance(zStart, bAdd) {
+      const yStart = cInv(zStart);
+      const out = [];
+      for (let i = 0; i <= 60; i++) out.push(zNormToGamma(cInv(cAdd(yStart, { re: 0, im: bAdd * (i/60) }))));
+      return out;
+    }
+    function normalizedToComponentStr(val, w, z0, kind) {
+      if (Math.abs(val) < 1e-12) return `${kind}=0`;
+      const prefix = kind === 'Series' ? '串聯' : '並聯';
+      if (kind === 'Series') {
+          const X = val * z0;
+          return X > 0 ? `${prefix} L=${fmt((X/w)*1e9, 3)}nH` : `${prefix} C=${fmt((-1/(w*X))*1e12, 3)}pF`;
+      } else {
+          const B = val / z0;
+          return B > 0 ? `${prefix} C=${fmt((B/w)*1e12, 3)}pF` : `${prefix} L=${fmt((-1/(w*B))*1e9, 3)}nH`;
+      }
+    }
+
+    function solveLMatch() {
+      const freqHz = (parseFloat(freqEl.value) || 0) * 1e9;
+      const z0 = Math.max(1e-12, parseFloat(z0El.value) || 50);
+      if (freqHz <= 0) return [];
+
+      const targetR = parseFloat(matchTargetREl.value) || 50;
+      const targetX = parseFloat(matchTargetXEl.value) || 0;
+      const zInNorm = { re: targetR/z0, im: targetX/z0 };
+      const yInNorm = cInv(zInNorm);
+
+      const activeGamma = getEffectiveGamma();
+      const z = gammaToZNorm(activeGamma);
+      const rL = z.re, xL = z.im;
+      const y = cInv(z);
+      const gL = y.re, bL = y.im;
+      
+      const gIn = yInNorm.re, bIn = yInNorm.im;
+      const rIn = zInNorm.re, xIn = zInNorm.im;
+
+      const sols = [];
+      const w = 2 * Math.PI * freqHz;
+
+      if (gIn > 1e-9) {
+          const D = rL / gIn - rL*rL;
+          if (D >= -1e-9) {
+              const root = Math.sqrt(Math.max(0, D));
+              [-1, 1].forEach(sgn => {
+                  const xAdd = sgn * root - xL;
+                  const z1 = cAdd(z, {re:0, im: xAdd});
+                  const y1 = cInv(z1);
+                  const bAdd = bIn - y1.im;
+                  const zEnd = cInv(cAdd(y1, {re:0, im: bAdd}));
+                  sols.push({
+                      title: `[解 ${sols.length+1}]`,
+                      stepsText: [ `1) ${normalizedToComponentStr(xAdd, w, z0, 'Series')}`,
+                                   `2) ${normalizedToComponentStr(bAdd, w, z0, 'Shunt')}` ],
+                      paths: [pathSeriesReactance(z, xAdd), pathShuntSusceptance(z1, bAdd)], zEnd
+                  });
+              });
+          }
+      }
+
+      if (rIn > 1e-9) {
+          const D = gL / rIn - gL*gL;
+          if (D >= -1e-9) {
+              const root = Math.sqrt(Math.max(0, D));
+              [-1, 1].forEach(sgn => {
+                  const bAdd = sgn * root - bL;
+                  const y1 = cAdd(y, {re:0, im: bAdd});
+                  const z1 = cInv(y1);
+                  const xAdd = xIn - z1.im;
+                  const zEnd = cAdd(z1, {re:0, im: xAdd});
+                  sols.push({
+                      title: `[解 ${sols.length+1}]`,
+                      stepsText: [ `1) ${normalizedToComponentStr(bAdd, w, z0, 'Shunt')}`,
+                                   `2) ${normalizedToComponentStr(xAdd, w, z0, 'Series')}` ],
+                      paths: [pathShuntSusceptance(z, bAdd), pathSeriesReactance(z1, xAdd)], zEnd
+                  });
+              });
+          }
+      }
+      return sols;
+    }
+
+    function renderMatchSuggestions() {
+      const sols = solveLMatch();
+      matchPreviewPaths = sols;
+      if (!sols.length) {
+        matchSuggestionsEl.textContent = '無法計算兩元件 L-Match。';
+        render(); return;
+      }
+      const text = sols.map(sol => `${sol.title} ${sol.stepsText.join(' ➔ ')}`).join('\n');
+      matchSuggestionsEl.textContent = text;
+      render();
+    }
+
+    // --- Drawing ---
+    function gammaToCanvas(g) { return { x: cx + g.re * R, y: cy - g.im * R }; }
+    function canvasToGamma(x, y) {
+      let re = (x - cx) / R, im = -(y - cy) / R;
+      const mag = Math.hypot(re, im);
+      if (mag > 0.999) { re *= 0.999/mag; im *= 0.999/mag; }
+      return { re, im };
+    }
+    function zNormToGamma(z) { return cDiv(cSub(z, {re:1, im:0}), cAdd(z, {re:1, im:0})); }
+    function gammaToZNorm(g) { return cDiv(cAdd({re:1, im:0}, g), cSub({re:1, im:0}, g)); }
+
+    function drawCircle(x, y, r, color, lw = 1) {
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.stroke();
+    }
+    function drawArc(cx_a, cy_a, rad, color, lw) {
+      ctx.save(); ctx.beginPath(); ctx.arc(cx_a, cy_a, rad, 0, Math.PI * 2);
+      ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.stroke(); ctx.restore();
+    }
+
+    function drawSmithGrid() {
+      drawCircle(cx, cy, R, '#7bdff2', 2);
+      drawCircle(cx, cy, 1.0, '#7bdff2', 1);
+
+      ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
+
+      const rMajor = [0.2, 0.5, 1, 2, 5];
+      const xMajor = [0.2, 0.5, 1, 2, 5];
+      const rMinor = [0.1, 0.3, 0.7, 1.5, 3, 10];
+      const xMinor = [0.1, 0.3, 0.7, 1.5, 3, 10];
+
+      rMinor.forEach(r => drawCircle(cx + R*(r/(1+r)), cy, R/(1+r), 'rgba(120,150,255,0.16)'));
+      xMinor.forEach(x => {
+          drawArc(cx+R, cy - R/x, Math.abs(R/x), 'rgba(120,150,255,0.16)', 1);
+          drawArc(cx+R, cy + R/x, Math.abs(R/x), 'rgba(120,150,255,0.16)', 1);
+      });
+      rMajor.forEach(r => drawCircle(cx + R*(r/(1+r)), cy, R/(1+r), 'rgba(123,223,242,0.6)', r===1?1.8:1));
+      xMajor.forEach(x => {
+          drawArc(cx+R, cy - R/x, Math.abs(R/x), 'rgba(123,223,242,0.6)', Math.abs(x)===1?1.6:1);
+          drawArc(cx+R, cy + R/x, Math.abs(R/x), 'rgba(123,223,242,0.6)', Math.abs(x)===1?1.6:1);
+      });
+
+      ctx.restore();
+      ctx.beginPath(); ctx.moveTo(cx-R, cy); ctx.lineTo(cx+R, cy); ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.stroke();
+
+      ctx.fillStyle = 'rgba(234,240,255,0.8)'; ctx.font = '14px Arial'; ctx.textAlign = 'center';
+      ctx.fillText('0', cx - R + 12, cy - 8); ctx.fillText('∞', cx + R - 12, cy - 8);
+      ctx.fillText('+jX', cx, cy - R - 10); ctx.fillText('-jX', cx, cy + R + 18);
+
+      // 繪製格線數值標籤 (如果勾選)
+      if (showLabelsCb.checked) {
+          const z0 = Math.max(1e-12, parseFloat(z0El.value) || 50);
+
+          ctx.save();
+          ctx.fillStyle = 'rgba(234, 240, 255, 0.9)';
+          ctx.font = '12px Arial';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+
+          // 繪製 R 圓標籤
+          rMajor.forEach(r => {
+              const gre = (r - 1) / (r + 1);
+              const px = cx + R * gre;
+              const displayR = Number((r * z0).toFixed(2)).toString();
+              
+              ctx.lineWidth = 2.5; ctx.strokeStyle = '#0b1020';
+              ctx.strokeText(displayR, px - 8, cy + 12);
+              ctx.fillText(displayR, px - 8, cy + 12);
+          });
+
+          // 繪製 X 圓弧標籤
+          xMajor.forEach(x => {
+              const gre = (x * x - 1) / (x * x + 1);
+              const gim = (2 * x) / (x * x + 1);
+              const displayX = Number((x * z0).toFixed(2)).toString();
+              
+              // 上半部 +jX
+              let px = cx + R * gre;
+              let py = cy - R * gim;
+              let ux = -gre, uy = gim; 
+              
+              ctx.lineWidth = 2.5; ctx.strokeStyle = '#0b1020';
+              ctx.strokeText('j' + displayX, px + ux * 16, py + uy * 16);
+              ctx.fillText('j' + displayX, px + ux * 16, py + uy * 16);
+
+              // 下半部 -jX
+              px = cx + R * gre;
+              py = cy + R * gim;
+              ux = -gre; uy = -gim;
+              
+              ctx.strokeText('-j' + displayX, px + ux * 16, py + uy * 16);
+              ctx.fillText('-j' + displayX, px + ux * 16, py + uy * 16);
+          });
+          ctx.restore();
+      }
+    }
+
+    function drawPathLabel(comp, pathColorHex) {
+        if (!comp.path || comp.path.length < 2) return;
+        const midIdx = Math.floor(comp.path.length / 2);
+        const midP = gammaToCanvas(comp.path[midIdx]);
+        
+        let labelStr = '';
+        if (comp.type === 'transformer') {
+            labelStr = `N=${fmt(comp.value, 3)}`;
+        } else {
+            let compStr = comp.type.endsWith('L') ? 'L' : (comp.type.endsWith('C') ? 'C' : 'R');
+            let unitStr = comp.unit === 'ohm' ? 'Ω' : (comp.unit === 'kOhm' ? 'kΩ' : comp.unit);
+            labelStr = `${compStr}=${fmt(comp.value, 3)}${unitStr}`;
+        }
+        
+        ctx.save();
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        
+        // 增加黑底白邊效果
+        ctx.lineWidth = 3.5;
+        ctx.strokeStyle = '#0b1020';
+        ctx.strokeText(labelStr, midP.x + 8, midP.y);
+        ctx.fillStyle = pathColorHex;
+        ctx.fillText(labelStr, midP.x + 8, midP.y);
+        ctx.restore();
+    }
+
+    function drawChainAndPreview() {
+      // 繪製已加入的元件陣列
+      if (components.length > 0) {
+        ctx.save();
+        components.forEach((comp, idx) => {
+            const pathColorHex = getPathColorHex(comp.type);
+            
+            ctx.beginPath();
+            comp.path.forEach((g, i) => {
+                const p = gammaToCanvas(g);
+                if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+            });
+            ctx.strokeStyle = pathColorHex;
+            ctx.lineWidth = 3.5;
+            ctx.stroke();
+
+            // 畫上路徑文字
+            drawPathLabel(comp, pathColorHex);
+
+            // 節點圓點
+            const pEnd = gammaToCanvas(comp.gamma1);
+            ctx.beginPath(); ctx.arc(pEnd.x, pEnd.y, 6, 0, Math.PI*2);
+            ctx.fillStyle = '#fff'; ctx.fill();
+            ctx.lineWidth = 2; ctx.strokeStyle = '#000'; ctx.stroke();
+
+            ctx.fillStyle = '#111'; ctx.font = 'bold 9px Arial'; ctx.textAlign = 'center'; ctx.textBaseline='middle';
+            ctx.fillText(idx + 1, pEnd.x, pEnd.y);
+        });
+        ctx.restore();
+      }
+
+      // 繪製操作預覽
+      if (elementPreview && elementPreview.path.length > 0) {
+        ctx.save(); 
+        const pathColorHex = getPathColorHex(elementPreview.type);
+        
+        ctx.beginPath();
+        elementPreview.path.forEach((g, idx) => {
+          const p = gammaToCanvas(g);
+          if (idx === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+        });
+        // 預覽採用虛線顯示
+        ctx.setLineDash([5, 5]);
+        ctx.strokeStyle = pathColorHex; ctx.lineWidth = 3.5; ctx.stroke();
+        ctx.setLineDash([]);
+
+        drawPathLabel(elementPreview, pathColorHex);
+
+        const pEnd = gammaToCanvas(elementPreview.gamma1);
+        ctx.beginPath(); ctx.arc(pEnd.x, pEnd.y, 5, 0, Math.PI*2);
+        ctx.fillStyle = '#7ae582'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; ctx.stroke();
+        ctx.restore();
+      }
+
+      // 繪製 Auto Match 的建議路徑
+      if (matchPreviewPaths.length > 0) {
+        const colors = ['rgba(255,173,102,0.85)', 'rgba(123,223,242,0.85)'];
+        matchPreviewPaths.forEach((sol, idx) => {
+          const color = colors[idx % colors.length];
+          sol.paths.forEach((path, pidx) => {
+            if(!path || path.length < 2) return;
+            ctx.save(); ctx.beginPath();
+            path.forEach((g, k) => {
+              const p = gammaToCanvas(g);
+              if (k === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+            });
+            ctx.strokeStyle = color; ctx.lineWidth = 3; 
+            ctx.setLineDash(pidx === 0 ? [6, 6] : []); ctx.stroke(); ctx.restore();
+          });
+          // 目標終點
+          const targ = gammaToCanvas(zNormToGamma(sol.zEnd));
+          ctx.beginPath(); ctx.arc(targ.x, targ.y, 6, 0, Math.PI*2);
+          ctx.fillStyle = color; ctx.fill();
+        });
+      }
+    }
+
+    function drawBasePoint() {
+      const p = gammaToCanvas(baseGamma);
+      ctx.save(); ctx.beginPath(); ctx.arc(p.x, p.y, 7, 0, Math.PI * 2);
+      ctx.fillStyle = '#ff6b6b'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; ctx.stroke();
+      ctx.restore();
+    }
+
+    function render() {
+      ctx.clearRect(0, 0, W, H);
+      drawSmithGrid();
+      drawChainAndPreview();
+      drawBasePoint();
+    }
+
+    // --- Interactivity ---
+    function updateInputsFromBaseGamma() {
+      const z0 = Math.max(1e-12, parseFloat(z0El.value) || 50);
+      const zNorm = gammaToZNorm(baseGamma);
+      realEl.value = fmt(zNorm.re * z0, 3); imagEl.value = fmt(zNorm.im * z0, 3);
+    }
+    
+    function updateReadout() {
+      const z0 = Math.max(1e-12, parseFloat(z0El.value) || 50);
+      
+      const activeGamma = elementPreview ? elementPreview.gamma1 : getEffectiveGamma();
+      const zNorm = gammaToZNorm(activeGamma);
+      const mag = cAbs(activeGamma), ang = cAngDeg(activeGamma);
+      const vswr = mag >= 0.999999 ? Infinity : (1 + mag) / (1 - mag);
+      const Z = {re: zNorm.re*z0, im: zNorm.im*z0};
+      
+      let Q = 0;
+      if (Math.abs(Z.re) > 1e-9) {
+          Q = Math.abs(Z.im) / Z.re;
+      } else if (Math.abs(Z.im) > 1e-9) {
+          Q = Infinity;
+      }
+
+      gammaText.textContent = fmtComplex(activeGamma);
+      gammaMag.textContent = fmt(mag, 3);
+      gammaAng.textContent = `${fmt(ang, 3)}°`;
+      vswrText.textContent = Number.isFinite(vswr) ? fmt(vswr, 3) : '∞';
+      qText.textContent = Number.isFinite(Q) ? fmt(Q, 3) : '∞';
+      znText.textContent = fmtComplex(zNorm);
+      zText.textContent = fmtComplex(Z, 'Ω');
+      yText.textContent = fmtComplex(cInv(Z), 'S');
+
+      if (elementPreview) {
+          previewIndicator.style.display = 'inline';
+      } else {
+          previewIndicator.style.display = 'none';
+      }
+    }
+
+    function applyBaseInputs() {
+      const r = parseFloat(realEl.value) || 0, x = parseFloat(imagEl.value) || 0;
+      const z0 = Math.max(1e-12, parseFloat(z0El.value) || 50);
+      baseGamma = zNormToGamma({ re: r/z0, im: x/z0 });
+      elementPreview = null; 
+      recomputeChain(); 
+      if(matchPreviewPaths.length > 0) renderMatchSuggestions();
+      render(); updateReadout(); updateUIList();
+    }
+
+    function pointerPos(evt) {
+      const rect = canvas.getBoundingClientRect();
+      return { x: (evt.clientX - rect.left) * (canvas.width / rect.width),
+               y: (evt.clientY - rect.top) * (canvas.height / rect.height) };
+    }
+
+    // 處理手動選擇元件類別時切換對應單位
+    elemTypeEl.addEventListener('change', () => {
+        const t = elemTypeEl.value;
+        if (t.endsWith('L')) elemUnitEl.value = 'nH';
+        else if (t.endsWith('C')) elemUnitEl.value = 'pF';
+        else if (t.endsWith('R')) elemUnitEl.value = 'ohm';
+        else if (t === 'transformer') elemUnitEl.value = 'N';
+        
+        elementPreview = computeElementPreview(); 
+        render(); updateReadout();
+    });
+
+    function onMove(evt) {
+      if (!dragging) return;
+      const p = pointerPos(evt);
+      const mode = document.querySelector('input[name="mouseMode"]:checked').value;
+      const z0 = Math.max(1e-12, parseFloat(z0El.value) || 50);
+      const freqHz = (parseFloat(freqEl.value) || 0) * 1e9;
+      const w = 2 * Math.PI * freqHz;
+
+      if (mode === 'point') {
+          baseGamma = canvasToGamma(p.x, p.y);
+          updateInputsFromBaseGamma();
+          elementPreview = null; 
+          recomputeChain();
+          if(matchPreviewPaths.length > 0) renderMatchSuggestions();
+      } else {
+          const startG = getEffectiveGamma();
+          const zNorm0 = gammaToZNorm(startG);
+          const yNorm0 = cInv(zNorm0);
+          
+          let dx, dy, theta, gre, gim;
+          if (mode === 'series') {
+              const r = zNorm0.re;
+              const cx_norm = r / (r + 1), rad_norm = 1 / (r + 1);
+              dx = (p.x - cx)/R - cx_norm; dy = -(p.y - cy)/R;
+              theta = Math.atan2(dy, dx);
+              gre = cx_norm + rad_norm * Math.cos(theta); gim = rad_norm * Math.sin(theta);
+              if (Math.hypot(gre - 1, gim) < 1e-4) { gre = 1 - 1e-4; gim = 0; }
+              const zNew = gammaToZNorm({re: gre, im: gim});
+              
+              const valAdd = zNew.im - zNorm0.im;
+              const X = valAdd * z0;
+              if (X >= 0) { elemTypeEl.value = 'seriesL'; elemUnitEl.value = 'nH'; elemValueEl.value = fmt((X/w)*1e9, 3); } 
+              else { elemTypeEl.value = 'seriesC'; elemUnitEl.value = 'pF'; elemValueEl.value = fmt((-1/(w*X))*1e12, 3); }
+
+          } else if (mode === 'shunt') {
+              const g = yNorm0.re;
+              const cx_norm = -g / (g + 1), rad_norm = 1 / (g + 1);
+              dx = (p.x - cx)/R - cx_norm; dy = -(p.y - cy)/R;
+              theta = Math.atan2(dy, dx);
+              gre = cx_norm + rad_norm * Math.cos(theta); gim = rad_norm * Math.sin(theta);
+              if (Math.hypot(gre + 1, gim) < 1e-4) { gre = -1 + 1e-4; gim = 0; }
+              const yNew = cInv(gammaToZNorm({re: gre, im: gim}));
+
+              const valAdd = yNew.im - yNorm0.im;
+              const B = valAdd / z0;
+              if (B >= 0) { elemTypeEl.value = 'shuntC'; elemUnitEl.value = 'pF'; elemValueEl.value = fmt((B/w)*1e12, 3); } 
+              else { elemTypeEl.value = 'shuntL'; elemUnitEl.value = 'nH'; elemValueEl.value = fmt((-1/(w*B))*1e9, 3); }
+
+          } else if (mode === 'seriesR') {
+              const zMouse = gammaToZNorm(canvasToGamma(p.x, p.y));
+              let drNorm = zMouse.re - zNorm0.re;
+              if (drNorm < 0) drNorm = 0;
+              elemTypeEl.value = 'seriesR'; elemUnitEl.value = 'ohm'; elemValueEl.value = fmt(drNorm * z0, 3);
+
+          } else if (mode === 'shuntR') {
+              const yMouse = cInv(gammaToZNorm(canvasToGamma(p.x, p.y)));
+              let dgNorm = yMouse.re - yNorm0.re;
+              if (dgNorm <= 1e-9) dgNorm = 1e-9;
+              elemTypeEl.value = 'shuntR'; elemUnitEl.value = 'ohm'; elemValueEl.value = fmt(1 / (dgNorm / z0), 3);
+
+          } else if (mode === 'transformer') {
+              const zMouse = gammaToZNorm(canvasToGamma(p.x, p.y));
+              const magOld = Math.hypot(zNorm0.re, zNorm0.im);
+              const magMouse = Math.hypot(zMouse.re, zMouse.im);
+              let N2 = magOld > 1e-9 ? magMouse / magOld : 1;
+              elemTypeEl.value = 'transformer'; elemUnitEl.value = 'N'; elemValueEl.value = fmt(Math.sqrt(N2), 3);
+          }
+          elementPreview = computeElementPreview();
+      }
+      render(); updateReadout();
+    }
+
+    canvas.addEventListener('mousedown', (evt) => {
+      const mode = document.querySelector('input[name="mouseMode"]:checked').value;
+      const p = pointerPos(evt);
+      if (mode === 'point') {
+          const gp = gammaToCanvas(baseGamma);
+          if (Math.hypot(p.x - cx, p.y - cy) <= R || Math.hypot(p.x - gp.x, p.y - gp.y) < 20) {
+              dragging = true; baseGamma = canvasToGamma(p.x, p.y);
+              updateInputsFromBaseGamma(); recomputeChain(); 
+              if(matchPreviewPaths.length > 0) renderMatchSuggestions();
+              render(); updateReadout(); updateUIList();
+          }
+      } else {
+          if (Math.hypot(p.x - cx, p.y - cy) <= R) {
+              dragging = true; onMove(evt);
+          }
+      }
+    });
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', () => dragging = false);
+
+    showLabelsCb.addEventListener('change', render);
+
+    // --- Action Buttons ---
+    addCompBtn.addEventListener('click', () => {
+      if (components.length >= 10) { alert("已達上限！"); return; }
+      if (!elementPreview) elementPreview = computeElementPreview();
+      if (!elementPreview) return;
+
+      components.push({
+          type: elementPreview.type, valSI: elementPreview.valSI,
+          unit: elementPreview.unit, value: elementPreview.value,
+          kindStr: elementPreview.kindStr, desc: elementPreview.desc
+      });
+      elementPreview = null; recomputeChain(); 
+      if(matchPreviewPaths.length > 0) renderMatchSuggestions();
+      render(); updateReadout(); updateUIList();
+    });
+
+    undoCompBtn.addEventListener('click', () => {
+        if (components.length === 0) return;
+        components.pop(); elementPreview = null; recomputeChain(); 
+        if(matchPreviewPaths.length > 0) renderMatchSuggestions();
+        render(); updateReadout(); updateUIList();
+    });
+
+    clearAllCompBtn.addEventListener('click', () => {
+        components = []; elementPreview = null; 
+        if(matchPreviewPaths.length > 0) renderMatchSuggestions();
+        render(); updateReadout(); updateUIList();
+    });
+
+    applyBtn.addEventListener('click', applyBaseInputs);
+    resetBtn.addEventListener('click', () => {
+      realEl.value = '25.000'; imagEl.value = '25.000'; z0El.value = '50.000'; freqEl.value = '2.450';
+      document.querySelector('input[name="mouseMode"][value="point"]').checked = true;
+      components = []; matchPreviewPaths = []; matchSuggestionsEl.textContent = '尚未產生建議。';
+      updateUIList(); applyBaseInputs();
+    });
+
+    suggestMatchBtn.addEventListener('click', renderMatchSuggestions);
+    clearMatchBtn.addEventListener('click', () => { 
+        matchPreviewPaths = []; matchSuggestionsEl.textContent = '尚未產生建議。'; render(); 
+    });
+
+    [elemTypeEl, elemValueEl, elemUnitEl].forEach(el => {
+      el.addEventListener('input', () => { 
+          elementPreview = computeElementPreview(); 
+          render(); updateReadout(); 
+      });
+    });
+    
+    [freqEl, z0El].forEach(el => {
+      el.addEventListener('input', () => { 
+          if(elementPreview) elementPreview = computeElementPreview(); 
+          recomputeChain(); 
+          if(matchPreviewPaths.length > 0) renderMatchSuggestions();
+          render(); updateReadout(); updateUIList();
+      });
+    });
+
+    realEl.addEventListener('keydown', e => { if(e.key==='Enter') applyBaseInputs(); });
+    imagEl.addEventListener('keydown', e => { if(e.key==='Enter') applyBaseInputs(); });
+
+    applyBaseInputs(); // Init
+  </script>
+</body>
+</html>
