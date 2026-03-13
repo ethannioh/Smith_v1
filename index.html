@@ -160,7 +160,7 @@
 <body>
   <div class="wrap">
     <h1>Compact L-Match & Smith Chart Tool</h1>
-    <div class="sub">全面支援 L(綠) / C(紫) / R(橘) 與 理想變壓器1:N(粉) 拖曳。終端自動計算 Q 值與阻抗預覽。支援點擊清單 Highligh 特定的匹配解。</div>
+    <div class="sub">全面支援 L(綠) / C(紫) / R(橘) 與 理想變壓器1:N(粉) 拖曳。右上角顯示即時阻抗表。</div>
 
     <div class="layout">
       <div class="left-panel">
@@ -176,7 +176,7 @@
             
             <div style="width:1px; height:16px; background:rgba(255,255,255,0.2); margin: 0 4px;"></div>
             <label style="color:var(--accent); font-weight:bold;">
-              <input type="checkbox" id="showLabelsCb" checked> 🏷 顯示實際阻抗值(Ω)
+              <input type="checkbox" id="showLabelsCb" checked> 🏷 顯示格線阻抗值(Ω)
             </label>
           </div>
           
@@ -229,7 +229,7 @@
         <div class="card">
           <div style="font-size: 13px; font-weight: bold; display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 4px;">
             <span>元件串接列表</span>
-            <span id="compCountText" style="color: var(--accent);">0 / 10</span>
+            <span id="compCountText" style="color: var(--accent);">共 0 個元件</span>
           </div>
           <ul class="comp-list" id="compList"></ul>
         </div>
@@ -332,7 +332,7 @@
     let elementPreview = null; 
     
     let matchPreviewPaths = [];
-    let selectedMatchIdx = -1; // 記錄目前被點擊高亮的解決方案 Index
+    let selectedMatchIdx = -1; 
 
     // --- Complex Math Functions ---
     function cAdd(a, b) { return { re: a.re + b.re, im: a.im + b.im }; }
@@ -383,14 +383,14 @@
       const path = [];
       const N_pts = 60; 
 
-      if (type.startsWith('series') && !type.endsWith('R')) { // Series L/C
+      if (type.startsWith('series') && !type.endsWith('R')) {
         const w = 2 * Math.PI * freqHz;
         const X = type.endsWith('L') ? w * valSI : -1 / (w * valSI);
         const dxNorm = X / z0;
         zNorm1 = cAdd(zNorm0, { re: 0, im: dxNorm });
         for (let i = 0; i <= N_pts; i++) path.push(zNormToGamma(cAdd(zNorm0, { re: 0, im: dxNorm * (i / N_pts) })));
       } 
-      else if (type.startsWith('shunt') && !type.endsWith('R')) { // Shunt L/C
+      else if (type.startsWith('shunt') && !type.endsWith('R')) {
         const w = 2 * Math.PI * freqHz;
         const B = type.endsWith('C') ? w * valSI : -1 / (w * valSI);
         const dbNorm = B * z0;
@@ -398,18 +398,18 @@
         zNorm1 = cInv(yNorm1);
         for (let i = 0; i <= N_pts; i++) path.push(zNormToGamma(cInv(cAdd(yNorm0, { re: 0, im: dbNorm * (i / N_pts) }))));
       }
-      else if (type === 'seriesR') { // Series R
+      else if (type === 'seriesR') {
         const drNorm = valSI / z0;
         zNorm1 = cAdd(zNorm0, { re: drNorm, im: 0 });
         for (let i = 0; i <= N_pts; i++) path.push(zNormToGamma(cAdd(zNorm0, { re: drNorm * (i / N_pts), im: 0 })));
       }
-      else if (type === 'shuntR') { // Shunt R
+      else if (type === 'shuntR') {
         let dgNorm = valSI < 1e-12 ? 1e12 : z0 / valSI;
         yNorm1 = cAdd(yNorm0, { re: dgNorm, im: 0 });
         zNorm1 = cInv(yNorm1);
         for (let i = 0; i <= N_pts; i++) path.push(zNormToGamma(cInv(cAdd(yNorm0, { re: dgNorm * (i / N_pts), im: 0 }))));
       }
-      else if (type === 'transformer') { // Ideal Transformer
+      else if (type === 'transformer') {
         const N2 = valSI * valSI;
         zNorm1 = { re: zNorm0.re * N2, im: zNorm0.im * N2 };
         for (let i = 0; i <= N_pts; i++) {
@@ -530,7 +530,7 @@
             `;
             compListEl.appendChild(li);
         });
-        compCountText.textContent = `${components.length} / 10`;
+        compCountText.textContent = `共 ${components.length} 個元件`;
     }
 
     // --- Auto Match Algorithms ---
@@ -624,7 +624,7 @@
     function renderMatchSuggestions() {
       const sols = solveLMatch();
       matchPreviewPaths = sols;
-      selectedMatchIdx = -1; // 預設不選擇
+      selectedMatchIdx = -1; 
       
       if (!sols.length) {
         matchSuggestionsEl.innerHTML = '<div class="note" style="margin-top:0;">無法計算兩元件 L-Match，請檢查目標值。</div>';
@@ -640,7 +640,6 @@
           <div>${sol.stepsText.join(' ➔ ')}</div>
         `;
         div.onclick = () => {
-          // Toggle selection
           if (selectedMatchIdx === idx) {
               selectedMatchIdx = -1;
           } else {
@@ -715,7 +714,6 @@
       ctx.fillText('0', cx - R + 12, cy - 8); ctx.fillText('∞', cx + R - 12, cy - 8);
       ctx.fillText('+jX', cx, cy - R - 10); ctx.fillText('-jX', cx, cy + R + 18);
 
-      // 繪製格線數值標籤
       if (showLabelsCb.checked) {
           const z0 = Math.max(1e-12, parseFloat(z0El.value) || 50);
 
@@ -762,11 +760,11 @@
         
         let labelStr = '';
         if (comp.type === 'transformer') {
-            labelStr = `N=${fmt(comp.value, 3)}`;
+            labelStr = `N=${fmt(comp.value, 2)}`;
         } else {
             let compStr = comp.type.endsWith('L') ? 'L' : (comp.type.endsWith('C') ? 'C' : 'R');
             let unitStr = comp.unit === 'ohm' ? 'Ω' : (comp.unit === 'kOhm' ? 'kΩ' : comp.unit);
-            labelStr = `${compStr}=${fmt(comp.value, 3)}${unitStr}`;
+            labelStr = `${compStr}=${fmt(comp.value, 2)}${unitStr}`;
         }
         
         ctx.save();
@@ -783,7 +781,6 @@
     }
 
     function drawChainAndPreview() {
-      // 繪製已加入的元件陣列
       if (components.length > 0) {
         ctx.save();
         components.forEach((comp, idx) => {
@@ -798,10 +795,8 @@
             ctx.lineWidth = 3.5;
             ctx.stroke();
 
-            // 畫上路徑文字
             drawPathLabel(comp, pathColorHex);
 
-            // 節點圓點
             const pEnd = gammaToCanvas(comp.gamma1);
             ctx.beginPath(); ctx.arc(pEnd.x, pEnd.y, 6, 0, Math.PI*2);
             ctx.fillStyle = '#fff'; ctx.fill();
@@ -813,7 +808,6 @@
         ctx.restore();
       }
 
-      // 繪製操作預覽
       if (elementPreview && elementPreview.path.length > 0) {
         ctx.save(); 
         const pathColorHex = getPathColorHex(elementPreview.type);
@@ -835,15 +829,13 @@
         ctx.restore();
       }
 
-      // 繪製 Auto Match 的建議路徑 (包含點擊高亮邏輯)
       if (matchPreviewPaths.length > 0) {
-        const colors = ['#ffad66', '#7bdff2', '#c084fc', '#4ade80']; // 4 種區分顏色
+        const colors = ['#ffad66', '#7bdff2', '#c084fc', '#4ade80']; 
         matchPreviewPaths.forEach((sol, idx) => {
           
           const isSelected = (selectedMatchIdx === idx);
           const hasSelection = (selectedMatchIdx !== -1);
           
-          // 如果有選中某條，非選中的那些會變得很透明 (Dim)
           let alpha = 0.85;
           if (hasSelection && !isSelected) alpha = 0.15;
           if (isSelected) alpha = 1.0;
@@ -861,12 +853,11 @@
               if (k === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
             });
             ctx.strokeStyle = color; 
-            ctx.lineWidth = isSelected ? 4.5 : 3; // 選中時稍微加粗
+            ctx.lineWidth = isSelected ? 4.5 : 3; 
             ctx.setLineDash(pidx === 0 ? [6, 6] : []); 
             ctx.stroke(); 
           });
 
-          // 目標終點
           const targ = gammaToCanvas(zNormToGamma(sol.zEnd));
           ctx.beginPath(); ctx.arc(targ.x, targ.y, isSelected ? 7 : 5, 0, Math.PI*2);
           ctx.fillStyle = color; ctx.fill();
@@ -892,6 +883,75 @@
       drawSmithGrid();
       drawChainAndPreview();
       drawBasePoint();
+
+      // 繪製起點與終點的實際阻抗值標籤 (表格)
+      const z0 = Math.max(1e-12, parseFloat(z0El.value) || 50);
+      const activeGamma = elementPreview ? elementPreview.gamma1 : getEffectiveGamma();
+
+      const sZNorm = gammaToZNorm(baseGamma);
+      const sZ = { re: sZNorm.re * z0, im: sZNorm.im * z0 };
+      const eZNorm = gammaToZNorm(activeGamma);
+      const eZ = { re: eZNorm.re * z0, im: eZNorm.im * z0 };
+
+      const startText = fmtComplex(sZ, 'Ω');
+      const endText = fmtComplex(eZ, 'Ω');
+
+      ctx.save();
+      const boxW = 250;
+      const boxH = 64;
+      const padding = 14;
+      const bx = W - boxW - 20; 
+      const by = 20;
+
+      // 繪製半透明圓角背景
+      ctx.fillStyle = 'rgba(18, 25, 51, 0.9)';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      ctx.lineWidth = 1.5;
+      
+      ctx.beginPath();
+      const r = 8;
+      ctx.moveTo(bx + r, by);
+      ctx.lineTo(bx + boxW - r, by);
+      ctx.quadraticCurveTo(bx + boxW, by, bx + boxW, by + r);
+      ctx.lineTo(bx + boxW, by + boxH - r);
+      ctx.quadraticCurveTo(bx + boxW, by + boxH, bx + boxW - r, by + boxH);
+      ctx.lineTo(bx + r, by + boxH);
+      ctx.quadraticCurveTo(bx, by + boxH, bx, by + boxH - r);
+      ctx.lineTo(bx, by + r);
+      ctx.quadraticCurveTo(bx, by, bx + r, by);
+      ctx.closePath();
+      
+      ctx.fill();
+      ctx.stroke();
+
+      // 分隔線
+      ctx.beginPath();
+      ctx.moveTo(bx + padding, by + boxH/2);
+      ctx.lineTo(bx + boxW - padding, by + boxH/2);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      ctx.stroke();
+
+      ctx.textBaseline = 'middle';
+
+      // 起點
+      ctx.font = 'bold 14px Arial';
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#ff6b6b';
+      ctx.fillText('起點 Z', bx + padding, by + boxH/4);
+      ctx.font = '14px monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText(startText, bx + boxW - padding, by + boxH/4);
+
+      // 終點
+      ctx.font = 'bold 14px Arial';
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#7bdff2';
+      ctx.fillText('終點 Z', bx + padding, by + boxH * 3/4);
+      ctx.font = '14px monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText(endText, bx + boxW - padding, by + boxH * 3/4);
+
+      ctx.restore();
     }
 
     // --- Interactivity ---
@@ -1057,7 +1117,6 @@
 
     // --- Action Buttons ---
     addCompBtn.addEventListener('click', () => {
-      if (components.length >= 10) { alert("已達上限！"); return; }
       if (!elementPreview) elementPreview = computeElementPreview();
       if (!elementPreview) return;
 
