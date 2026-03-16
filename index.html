@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Compact L-Match & Smith Chart Tool</title>
+  <title>Compact L-Match & Smith Chart Tool — Fixed</title>
   <style>
     :root {
       --bg: #0b1020;
@@ -12,10 +12,11 @@
       --muted: #aeb9d9;
       --accent: #7bdff2;
       --ok: #7ae582;
-      --l-color: #4ade80; /* 電感 綠色 */
-      --c-color: #c084fc; /* 電容 紫色 */
-      --r-color: #fbbf24; /* 電阻 橘色 */
-      --t-color: #ffeaed; /* 變壓器 粉紅色 */
+      --warn: #fbbf24;
+      --l-color: #4ade80;
+      --c-color: #c084fc;
+      --r-color: #fbbf24;
+      --t-color: #ffb6c1;
       --input: #0e1530;
       --border: rgba(255,255,255,0.12);
     }
@@ -30,7 +31,7 @@
     }
 
     .wrap {
-      max-width: 1300px;
+      max-width: 1320px;
       margin: 0 auto;
       padding: 12px 20px;
     }
@@ -40,7 +41,7 @@
 
     .layout {
       display: grid;
-      grid-template-columns: 460px 1fr;
+      grid-template-columns: 470px 1fr;
       gap: 16px;
       align-items: stretch;
     }
@@ -55,65 +56,125 @@
       box-shadow: 0 4px 15px rgba(0,0,0,0.2);
     }
 
-    h2 { margin: 0 0 8px; font-size: 14px; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 4px;}
+    h2 {
+      margin: 0 0 8px;
+      font-size: 14px;
+      color: var(--accent);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 4px;
+    }
 
     .grid { display: grid; gap: 8px; }
     .grid-4 { grid-template-columns: repeat(4, 1fr); }
     .grid-3 { grid-template-columns: 2fr 1fr 1fr; }
     .grid-3-eq { grid-template-columns: repeat(3, 1fr); }
-    
-    .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 4px; }
-    .field label { color: var(--muted); font-size: 11px; white-space: nowrap; }
+    .grid-2 { grid-template-columns: 1fr 1fr; }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-bottom: 4px;
+    }
+    .field label {
+      color: var(--muted);
+      font-size: 11px;
+      white-space: nowrap;
+    }
 
     input, select, button {
-      width: 100%; border: 1px solid var(--border);
-      background: var(--input); color: var(--text);
-      border-radius: 6px; padding: 6px 8px; font-size: 12px;
+      width: 100%;
+      border: 1px solid var(--border);
+      background: var(--input);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 6px 8px;
+      font-size: 12px;
     }
 
     button {
-      cursor: pointer; font-weight: bold;
+      cursor: pointer;
+      font-weight: bold;
       background: linear-gradient(180deg, #28408a, #1c2d66);
       border: 1px solid #3c54a5;
     }
-    button:hover { filter: brightness(1.2); }
+    button:hover { filter: brightness(1.12); }
     button.secondary { background: linear-gradient(180deg, #203158, #16223f); border-color: #2a3d66; }
     button.action { background: linear-gradient(180deg, #1b5e20, #0f3d13); color: #a5d6a7; border-color: #2e7d32; }
+    button.warn { background: linear-gradient(180deg, #6a4d14, #4f380c); color: #ffe29a; border-color: #8f6a18; }
     button.danger { background: linear-gradient(180deg, #6b2121, #4a1515); color: #ffbaba; border-color: #8e2b2b; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
 
     .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
 
-    /* 緊湊型結果表 */
     .results-table {
-      display: grid; grid-template-columns: 45px 1fr 45px 1fr; gap: 4px 8px;
-      font-size: 12px; align-items: center;
+      display: grid;
+      grid-template-columns: 52px 1fr 52px 1fr;
+      gap: 4px 8px;
+      font-size: 12px;
+      align-items: center;
     }
     .results-table .k { color: var(--muted); font-size: 11px; }
     .results-table .full-row { grid-column: 2 / 5; }
 
     .mode-radios {
-      display: flex; gap: 6px; font-size: 12px; flex-wrap: wrap;
-      background: rgba(0,0,0,0.2); padding: 8px; border-radius: 6px; margin-bottom: 10px;
+      display: flex;
+      gap: 6px;
+      font-size: 12px;
+      flex-wrap: wrap;
+      background: rgba(0,0,0,0.2);
+      padding: 8px;
+      border-radius: 6px;
+      margin-bottom: 10px;
     }
     .mode-radios label { cursor: pointer; display:flex; align-items:center; gap: 2px; }
 
-    /* 元件列表樣式 */
-    .comp-list { list-style: none; padding: 0; margin: 6px 0 0; max-height: 120px; overflow-y: auto;}
+    .hint-bar {
+      margin-top: 8px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 8px;
+      font-size: 12px;
+      color: var(--muted);
+      min-height: 32px;
+      display: flex;
+      align-items: center;
+    }
+
+    .comp-list {
+      list-style: none;
+      padding: 0;
+      margin: 6px 0 0;
+      max-height: 150px;
+      overflow-y: auto;
+    }
     .comp-list li {
-      background: rgba(255,255,255,0.06); border: 1px solid var(--border);
-      padding: 6px 10px; margin-bottom: 6px; border-radius: 6px; font-size: 12px;
-      display: flex; justify-content: space-between; align-items: center;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--border);
+      padding: 6px 10px;
+      margin-bottom: 6px;
+      border-radius: 6px;
+      font-size: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
     }
     .comp-list li .badge {
-      display: inline-block; padding: 2px 4px; border-radius: 4px;
-      font-size: 10px; font-weight: bold; margin-right: 6px;
+      display: inline-block;
+      padding: 2px 4px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: bold;
+      margin-right: 6px;
+      color: #000;
     }
-    .badge.ind { background: var(--l-color); color: #000; }
-    .badge.cap { background: var(--c-color); color: #000; }
-    .badge.res { background: var(--r-color); color: #000; }
-    .badge.tra { background: var(--t-color); color: #000; }
+    .badge.ind { background: var(--l-color); }
+    .badge.cap { background: var(--c-color); }
+    .badge.res { background: var(--r-color); }
+    .badge.tra { background: var(--t-color); }
 
-    /* 自動匹配選項的卡片樣式 */
     .match-item {
       padding: 6px 8px;
       border-radius: 6px;
@@ -125,9 +186,7 @@
       color: var(--text);
       font-size: 12px;
     }
-    .match-item:hover {
-      background: rgba(255, 255, 255, 0.08);
-    }
+    .match-item:hover { background: rgba(255, 255, 255, 0.08); }
     .match-item.selected {
       background: rgba(123, 223, 242, 0.15);
       border: 1px solid var(--accent);
@@ -138,58 +197,81 @@
       margin-bottom: 2px;
     }
 
+    .note {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
     canvas {
-      width: 100%; height: 100%; max-height: 800px; aspect-ratio: 1 / 1;
-      display: block; margin: 0 auto;
+      width: 100%;
+      height: 100%;
+      max-height: 820px;
+      aspect-ratio: 1 / 1;
+      display: block;
+      margin: 0 auto;
       background: radial-gradient(circle at center, rgba(89,122,255,0.1), rgba(0,0,0,0) 55%);
-      border-radius: 12px; cursor: crosshair;
+      border-radius: 12px;
+      cursor: crosshair;
     }
 
     .legend {
-      display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;
-      margin-top: 8px; font-size: 12px; color: var(--muted);
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--muted);
     }
     .dot {
-      width: 10px; height: 10px; display: inline-block; border-radius: 50%;
-      margin-right: 4px; vertical-align: middle;
+      width: 10px;
+      height: 10px;
+      display: inline-block;
+      border-radius: 50%;
+      margin-right: 4px;
+      vertical-align: middle;
     }
 
-    @media (max-width: 980px) { .layout { grid-template-columns: 1fr; } }
+    @media (max-width: 980px) {
+      .layout { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
   <div class="wrap">
     <h1>Compact L-Match & Smith Chart Tool</h1>
-    <div class="sub">全面支援 L(綠) / C(紫) / R(橘) 與 理想變壓器1:N(粉) 拖曳。元件列表新增節點 Q 值顯示。</div>
+    <div class="sub">已修正：匹配演算法現已完美支援並優先推薦「單元件(直接串/並聯)」的捷徑解。</div>
 
     <div class="layout">
       <div class="left-panel">
-        
         <div class="card">
           <div class="mode-radios">
             <label><input type="radio" name="mouseMode" value="point" checked> 📍 起點</label>
-            <label><input type="radio" name="mouseMode" value="series"> ➰ 串L/C</label>
-            <label><input type="radio" name="mouseMode" value="shunt"> ➿ 並L/C</label>
+            <label><input type="radio" name="mouseMode" value="series"> ➰ 串 L/C</label>
+            <label><input type="radio" name="mouseMode" value="shunt"> ➿ 並 L/C</label>
             <label><input type="radio" name="mouseMode" value="seriesR"> 〰 串聯 R</label>
             <label><input type="radio" name="mouseMode" value="shuntR"> ⸎ 並聯 R</label>
             <label><input type="radio" name="mouseMode" value="transformer"> 🗜 變壓器 1:N</label>
-            
             <div style="width:1px; height:16px; background:rgba(255,255,255,0.2); margin: 0 4px;"></div>
             <label style="color:var(--accent); font-weight:bold;">
               <input type="checkbox" id="showLabelsCb" checked> 🏷 顯示格線阻抗值(Ω)
             </label>
           </div>
-          
+
           <div class="grid grid-4">
             <div class="field"><label>Z0 (Ω)</label><input id="z0" type="number" step="any" value="50" /></div>
-            <div class="field"><label>Freq(G)</label><input id="freq" type="number" step="any" value="2.45" /></div>
+            <div class="field"><label>Freq (GHz)</label><input id="freq" type="number" step="any" value="2.45" /></div>
             <div class="field"><label>起點 R</label><input id="realVal" type="number" step="any" value="25" /></div>
             <div class="field"><label>起點 X</label><input id="imagVal" type="number" step="any" value="25" /></div>
           </div>
+
           <div class="btn-row" style="margin-top:4px;">
             <button id="applyBtn">更新起點</button>
             <button id="resetBtn" class="secondary">還原預設</button>
           </div>
+
+          <div class="hint-bar" id="dragHint">目前模式：起點拖曳</div>
         </div>
 
         <div class="card">
@@ -211,9 +293,12 @@
             <div class="field">
               <label>單位</label>
               <select id="elemUnit">
-                <option value="nH">nH</option><option value="pF">pF</option>
-                <option value="uH">uH</option><option value="fF">fF</option>
-                <option value="ohm">Ω</option><option value="kOhm">kΩ</option>
+                <option value="nH">nH</option>
+                <option value="pF">pF</option>
+                <option value="uH">uH</option>
+                <option value="fF">fF</option>
+                <option value="ohm">Ω</option>
+                <option value="kOhm">kΩ</option>
                 <option value="N">N (匝數比)</option>
               </select>
             </div>
@@ -242,7 +327,11 @@
             <button id="suggestMatchBtn" class="action">尋找解</button>
             <button id="clearMatchBtn" class="secondary">清除</button>
           </div>
-          <div id="matchSuggestions" style="margin-top:8px; max-height: 120px; overflow-y: auto;">
+          <div class="grid grid-2" style="margin-top:8px;">
+            <button id="applyMatchBtn" class="warn" disabled>套用選定解</button>
+            <button id="replaceMatchBtn" class="warn" disabled>清空後套用</button>
+          </div>
+          <div id="matchSuggestions" style="margin-top:8px; max-height: 150px; overflow-y: auto;">
             <div class="note" style="margin-top:0;">尚未產生建議。</div>
           </div>
         </div>
@@ -257,18 +346,19 @@
             <div class="k">|Γ|</div><div id="gammaMag">-</div>
             <div class="k">∠Γ</div><div id="gammaAng">-</div>
             <div class="k">VSWR</div><div id="vswrText">-</div>
-            <div class="k">Q 值</div><div id="qText" style="color: #fbbf24; font-weight:bold;">-</div>
+            <div class="k">Q節點</div><div id="qText" style="color: var(--warn); font-weight:bold;">-</div>
             <div class="k">Norm z</div><div id="znText" class="full-row">-</div>
             <div class="k">Z (Ω)</div><div id="zText" class="full-row" style="color:var(--accent); font-weight:bold; font-size:14px;">-</div>
+            <div class="k">|Z| (Ω)</div><div id="zMagText" class="full-row" style="color:var(--accent); font-weight:bold; font-size:13px;">-</div>
             <div class="k">Y (S)</div><div id="yText" class="full-row">-</div>
           </div>
+          <div class="note" style="margin-top:8px;">Q節點 = |Im(Z)| / Re(Z)，代表目前節點阻抗的反應程度，不是整體網路 loaded Q。</div>
         </div>
-
       </div>
 
       <div class="card" style="padding: 10px; display: flex; flex-direction: column;">
         <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center;">
-            <canvas id="smithCanvas" width="900" height="900"></canvas>
+          <canvas id="smithCanvas" width="900" height="900"></canvas>
         </div>
         <div class="legend">
           <span><span class="dot" style="background:#ff6b6b"></span>起點</span>
@@ -276,14 +366,17 @@
           <span><span class="dot" style="background:var(--c-color)"></span>電容 C</span>
           <span><span class="dot" style="background:var(--r-color)"></span>電阻 R</span>
           <span><span class="dot" style="background:var(--t-color)"></span>變壓器</span>
-          <span><span class="dot" style="background:rgba(255,173,102,0.85)"></span>匹配建議</span>
+          <span><span class="dot" style="background:rgba(255,173,102,0.9)"></span>匹配建議</span>
         </div>
       </div>
-
     </div>
   </div>
 
   <script>
+    const EPS = 1e-12;
+    const EPS_INV = 1e-24;
+    const CLAMP_GAMMA = 0.999999;
+
     const canvas = document.getElementById('smithCanvas');
     const ctx = canvas.getContext('2d');
 
@@ -293,7 +386,8 @@
     const freqEl = document.getElementById('freq');
     const applyBtn = document.getElementById('applyBtn');
     const resetBtn = document.getElementById('resetBtn');
-    
+    const dragHint = document.getElementById('dragHint');
+
     const elemTypeEl = document.getElementById('elemType');
     const elemValueEl = document.getElementById('elemValue');
     const elemUnitEl = document.getElementById('elemUnit');
@@ -307,6 +401,8 @@
     const matchTargetXEl = document.getElementById('matchTargetX');
     const suggestMatchBtn = document.getElementById('suggestMatchBtn');
     const clearMatchBtn = document.getElementById('clearMatchBtn');
+    const applyMatchBtn = document.getElementById('applyMatchBtn');
+    const replaceMatchBtn = document.getElementById('replaceMatchBtn');
     const matchSuggestionsEl = document.getElementById('matchSuggestions');
 
     const gammaText = document.getElementById('gammaText');
@@ -316,6 +412,7 @@
     const qText = document.getElementById('qText');
     const znText = document.getElementById('znText');
     const zText = document.getElementById('zText');
+    const zMagText = document.getElementById('zMagText');
     const yText = document.getElementById('yText');
     const previewIndicator = document.getElementById('previewIndicator');
     const showLabelsCb = document.getElementById('showLabelsCb');
@@ -326,35 +423,87 @@
     const cy = H / 2;
     const R = Math.min(W, H) * 0.45;
 
-    let baseGamma = { re: 0, im: 0 }; 
-    let components = []; 
+    let baseGamma = { re: 0, im: 0 };
+    let components = [];
     let dragging = false;
-    let elementPreview = null; 
-    
+    let elementPreview = null;
     let matchPreviewPaths = [];
-    let selectedMatchIdx = -1; 
+    let selectedMatchIdx = -1;
 
-    // --- Complex Math Functions ---
+    function c(re = 0, im = 0) { return { re, im }; }
     function cAdd(a, b) { return { re: a.re + b.re, im: a.im + b.im }; }
     function cSub(a, b) { return { re: a.re - b.re, im: a.im - b.im }; }
-    function cInv(a) { const d = a.re*a.re + a.im*a.im; return { re: a.re/d, im: -a.im/d }; }
-    function cDiv(a, b) { const d = b.re*b.re + b.im*b.im; return { re: (a.re*b.re + a.im*b.im)/d, im: (a.im*b.re - a.re*b.im)/d }; }
+    function cMul(a, b) { return { re: a.re*b.re - a.im*b.im, im: a.re*b.im + a.im*b.re }; }
+    function cDiv(a, b) {
+      const d = b.re*b.re + b.im*b.im;
+      if (d < EPS_INV) return null;
+      return { re: (a.re*b.re + a.im*b.im)/d, im: (a.im*b.re - a.re*b.im)/d };
+    }
+    function cInv(a) {
+      const d = a.re*a.re + a.im*a.im;
+      if (d < EPS_INV) return null;
+      return { re: a.re/d, im: -a.im/d };
+    }
     function cAbs(a) { return Math.hypot(a.re, a.im); }
     function cAngDeg(a) { return Math.atan2(a.im, a.re) * 180 / Math.PI; }
+    function isFiniteComplex(a) { return a && Number.isFinite(a.re) && Number.isFinite(a.im); }
+
+    function clampGamma(g) {
+      const mag = cAbs(g);
+      if (mag > CLAMP_GAMMA) {
+        return { re: g.re * CLAMP_GAMMA / mag, im: g.im * CLAMP_GAMMA / mag };
+      }
+      return g;
+    }
+
+    function zNormToGamma(z) {
+      const out = cDiv(cSub(z, c(1, 0)), cAdd(z, c(1, 0)));
+      return out ? clampGamma(out) : { re: 1, im: 0 };
+    }
+
+    function gammaToZNorm(g) {
+      const out = cDiv(cAdd(c(1, 0), g), cSub(c(1, 0), g));
+      return out || c(1e12, 0);
+    }
+
+    function gammaToCanvas(g) {
+      return { x: cx + g.re * R, y: cy - g.im * R };
+    }
+
+    function canvasToGamma(x, y) {
+      let re = (x - cx) / R;
+      let im = -(y - cy) / R;
+      const mag = Math.hypot(re, im);
+      if (mag > CLAMP_GAMMA) {
+        re *= CLAMP_GAMMA / mag;
+        im *= CLAMP_GAMMA / mag;
+      }
+      return { re, im };
+    }
 
     function fmt(v, digits = 3) {
-      if (!Number.isFinite(v)) return '∞';
+      if (v === null || v === undefined || !Number.isFinite(v)) return '∞';
       const av = Math.abs(v);
       if (av !== 0 && (av >= 1e4 || av < 1e-3)) return v.toExponential(3);
       return Number(v.toFixed(digits)).toString();
     }
-    
+
     function fmtComplex(a, unit='') {
+      if (!isFiniteComplex(a)) return `∞${unit ? ' ' + unit : ''}`;
       const sign = a.im >= 0 ? '+' : '-';
       return `${fmt(a.re, 3)} ${sign} j${fmt(Math.abs(a.im), 3)}${unit ? ' ' + unit : ''}`;
     }
 
-    // --- Component Logic ---
+    function nodeQFromZ(Z) {
+      if (!isFiniteComplex(Z)) return Infinity;
+      if (Math.abs(Z.re) > EPS) return Math.abs(Z.im) / Math.abs(Z.re);
+      if (Math.abs(Z.im) > EPS) return Infinity;
+      return 0;
+    }
+
+    function getZ0() { return Math.max(EPS, parseFloat(z0El.value) || 50); }
+    function getFreqHz() { return Math.max(0, (parseFloat(freqEl.value) || 0) * 1e9); }
+
     function elemValueSI(type, value, unit) {
       const v = parseFloat(value) || 0;
       if (type.endsWith('L')) {
@@ -362,97 +511,19 @@
         if (unit === 'nH') return v * 1e-9;
         return v * 1e-9;
       }
-      else if (type.endsWith('C')) {
+      if (type.endsWith('C')) {
         if (unit === 'pF') return v * 1e-12;
         return v * 1e-15;
       }
-      else if (type.endsWith('R')) {
+      if (type.endsWith('R')) {
         if (unit === 'kOhm') return v * 1e3;
-        return v; // ohm
+        return v;
       }
-      else if (type === 'transformer') {
-        return v; // N
-      }
+      if (type === 'transformer') return v;
       return v;
     }
 
-    function calcMove(startG, type, valSI, freqHz, z0) {
-      const zNorm0 = gammaToZNorm(startG);
-      const yNorm0 = cInv(zNorm0);
-      let zNorm1, yNorm1;
-      const path = [];
-      const N_pts = 60; 
-
-      if (type.startsWith('series') && !type.endsWith('R')) {
-        const w = 2 * Math.PI * freqHz;
-        const X = type.endsWith('L') ? w * valSI : -1 / (w * valSI);
-        const dxNorm = X / z0;
-        zNorm1 = cAdd(zNorm0, { re: 0, im: dxNorm });
-        for (let i = 0; i <= N_pts; i++) path.push(zNormToGamma(cAdd(zNorm0, { re: 0, im: dxNorm * (i / N_pts) })));
-      } 
-      else if (type.startsWith('shunt') && !type.endsWith('R')) {
-        const w = 2 * Math.PI * freqHz;
-        const B = type.endsWith('C') ? w * valSI : -1 / (w * valSI);
-        const dbNorm = B * z0;
-        yNorm1 = cAdd(yNorm0, { re: 0, im: dbNorm });
-        zNorm1 = cInv(yNorm1);
-        for (let i = 0; i <= N_pts; i++) path.push(zNormToGamma(cInv(cAdd(yNorm0, { re: 0, im: dbNorm * (i / N_pts) }))));
-      }
-      else if (type === 'seriesR') {
-        const drNorm = valSI / z0;
-        zNorm1 = cAdd(zNorm0, { re: drNorm, im: 0 });
-        for (let i = 0; i <= N_pts; i++) path.push(zNormToGamma(cAdd(zNorm0, { re: drNorm * (i / N_pts), im: 0 })));
-      }
-      else if (type === 'shuntR') {
-        let dgNorm = valSI < 1e-12 ? 1e12 : z0 / valSI;
-        yNorm1 = cAdd(yNorm0, { re: dgNorm, im: 0 });
-        zNorm1 = cInv(yNorm1);
-        for (let i = 0; i <= N_pts; i++) path.push(zNormToGamma(cInv(cAdd(yNorm0, { re: dgNorm * (i / N_pts), im: 0 }))));
-      }
-      else if (type === 'transformer') {
-        const N2 = valSI * valSI;
-        zNorm1 = { re: zNorm0.re * N2, im: zNorm0.im * N2 };
-        for (let i = 0; i <= N_pts; i++) {
-          const t = 1 + (N2 - 1) * (i / N_pts);
-          path.push(zNormToGamma({ re: zNorm0.re * t, im: zNorm0.im * t }));
-        }
-      }
-
-      return { gamma0: startG, gamma1: zNormToGamma(zNorm1), path };
-    }
-
-    function getEffectiveGamma() {
-      return components.length > 0 ? components[components.length - 1].gamma1 : baseGamma;
-    }
-
-    function recomputeChain() {
-      let currG = baseGamma;
-      const z0 = Math.max(1e-12, parseFloat(z0El.value) || 50);
-      const freqHz = (parseFloat(freqEl.value) || 0) * 1e9;
-
-      for (let i = 0; i < components.length; i++) {
-        const comp = components[i];
-        const move = calcMove(currG, comp.type, comp.valSI, freqHz, z0);
-        comp.gamma0 = move.gamma0;
-        comp.gamma1 = move.gamma1;
-        comp.path = move.path;
-        currG = move.gamma1;
-      }
-    }
-
-    function computeElementPreview() {
-      const type = elemTypeEl.value;
-      const value = parseFloat(elemValueEl.value) || 0;
-      const unit = elemUnitEl.value;
-      const valSI = elemValueSI(type, value, unit);
-      const freqHz = (parseFloat(freqEl.value) || 0) * 1e9;
-      const z0 = Math.max(1e-12, parseFloat(z0El.value) || 50);
-
-      if (freqHz <= 0 || valSI <= 0 || value === 0) return null;
-
-      const startG = getEffectiveGamma();
-      const move = calcMove(startG, type, valSI, freqHz, z0);
-      
+    function kindAndDesc(type, value, unit) {
       let kindStr = '';
       if (type.startsWith('series')) kindStr = 'Series';
       else if (type.startsWith('shunt')) kindStr = 'Shunt';
@@ -463,183 +534,356 @@
       else if (type.endsWith('C')) compStr = 'C';
       else if (type.endsWith('R')) compStr = 'R';
       else if (type === 'transformer') compStr = '1:N';
-      
-      // 預覽標籤四捨五入到 2 位
-      const desc = type === 'transformer' ? `N = ${fmt(value, 2)}` : `${compStr} = ${fmt(value, 2)} ${unit}`;
 
-      return { ...move, type, valSI, unit, value, kindStr, desc };
+      const desc = type === 'transformer'
+        ? `N = ${fmt(value, 3)}`
+        : `${compStr} = ${fmt(value, 3)} ${unit}`;
+      return { kindStr, desc };
     }
 
     function getPathColorHex(type) {
-        if (type.endsWith('L')) return '#4ade80'; // 綠色
-        if (type.endsWith('C')) return '#c084fc'; // 紫色
-        if (type.endsWith('R')) return '#fbbf24'; // 橘色
-        if (type === 'transformer') return '#ffeaed'; // 粉紅色
-        return '#ffffff';
+      if (type.endsWith('L')) return '#4ade80';
+      if (type.endsWith('C')) return '#c084fc';
+      if (type.endsWith('R')) return '#fbbf24';
+      if (type === 'transformer') return '#ffb6c1';
+      return '#ffffff';
     }
 
-    function updateComponentUIFromReactance(mode, valAdd) {
-        const z0 = Math.max(1e-12, parseFloat(z0El.value) || 50);
-        const freqHz = (parseFloat(freqEl.value) || 0) * 1e9;
+    function calcMove(startG, type, valSI, freqHz, z0) {
+      const zNorm0 = gammaToZNorm(startG);
+      const yNorm0 = cInv(zNorm0);
+      let zNorm1 = null;
+      let yNorm1 = null;
+      const path = [];
+      const N_pts = 80;
+
+      if (type.startsWith('series') && !type.endsWith('R')) {
+        if (freqHz <= 0 || valSI <= 0) return null;
         const w = 2 * Math.PI * freqHz;
-        
-        let type, L, C;
-        if (mode === 'series') {
-            const X = valAdd * z0;
-            if (X >= 0) { type = 'seriesL'; L = X / w; } 
-            else { type = 'seriesC'; C = -1 / (w * X); }
-        } else {
-            const B = valAdd / z0;
-            if (B >= 0) { type = 'shuntC'; C = B / w; } 
-            else { type = 'shuntL'; L = -1 / (w * B); }
+        const X = type.endsWith('L') ? w * valSI : -1 / (w * valSI);
+        const dxNorm = X / z0;
+        zNorm1 = cAdd(zNorm0, c(0, dxNorm));
+        for (let i = 0; i <= N_pts; i++) {
+          path.push(zNormToGamma(cAdd(zNorm0, c(0, dxNorm * (i / N_pts)))));
         }
-        
-        elemTypeEl.value = type;
-        if (type.endsWith('L')) {
-            if (L >= 1e-6) { elemUnitEl.value = 'uH'; elemValueEl.value = fmt(L * 1e6, 3); }
-            else { elemUnitEl.value = 'nH'; elemValueEl.value = fmt(L * 1e9, 3); }
-        } else {
-            if (C >= 1e-12) { elemUnitEl.value = 'pF'; elemValueEl.value = fmt(C * 1e12, 3); }
-            else { elemUnitEl.value = 'fF'; elemValueEl.value = fmt(C * 1e15, 3); }
+      } else if (type.startsWith('shunt') && !type.endsWith('R')) {
+        if (freqHz <= 0 || valSI <= 0 || !yNorm0) return null;
+        const w = 2 * Math.PI * freqHz;
+        const B = type.endsWith('C') ? w * valSI : -1 / (w * valSI);
+        const dbNorm = B * z0;
+        yNorm1 = cAdd(yNorm0, c(0, dbNorm));
+        zNorm1 = cInv(yNorm1);
+        if (!zNorm1) return null;
+        for (let i = 0; i <= N_pts; i++) {
+          const yi = cAdd(yNorm0, c(0, dbNorm * (i / N_pts)));
+          const zi = cInv(yi);
+          path.push(zi ? zNormToGamma(zi) : { re: -1, im: 0 });
         }
+      } else if (type === 'seriesR') {
+        const drNorm = Math.max(0, valSI / z0);
+        zNorm1 = cAdd(zNorm0, c(drNorm, 0));
+        for (let i = 0; i <= N_pts; i++) {
+          path.push(zNormToGamma(cAdd(zNorm0, c(drNorm * (i / N_pts), 0))));
+        }
+      } else if (type === 'shuntR') {
+        if (!yNorm0) return null;
+        const dgNorm = (valSI < EPS) ? 1e12 : z0 / valSI;
+        yNorm1 = cAdd(yNorm0, c(dgNorm, 0));
+        zNorm1 = cInv(yNorm1);
+        if (!zNorm1) return null;
+        for (let i = 0; i <= N_pts; i++) {
+          const yi = cAdd(yNorm0, c(dgNorm * (i / N_pts), 0));
+          const zi = cInv(yi);
+          path.push(zi ? zNormToGamma(zi) : { re: -1, im: 0 });
+        }
+      } else if (type === 'transformer') {
+        const N = Math.max(EPS, valSI);
+        const N2 = N * N;
+        zNorm1 = c(zNorm0.re * N2, zNorm0.im * N2);
+        for (let i = 0; i <= N_pts; i++) {
+          const t = 1 + (N2 - 1) * (i / N_pts);
+          path.push(zNormToGamma(c(zNorm0.re * t, zNorm0.im * t)));
+        }
+      }
+
+      if (!zNorm1) return null;
+      return { gamma0: startG, gamma1: zNormToGamma(zNorm1), path, zNorm1 };
     }
 
-    function updateUIList() {
-        compListEl.innerHTML = '';
-        const z0 = Math.max(1e-12, parseFloat(z0El.value) || 50);
-
-        components.forEach((c, i) => {
-            const li = document.createElement('li');
-            
-            let badgeClass = '';
-            if (c.type.endsWith('L')) badgeClass = 'ind';
-            else if (c.type.endsWith('C')) badgeClass = 'cap';
-            else if (c.type.endsWith('R')) badgeClass = 'res';
-            else if (c.type === 'transformer') badgeClass = 'tra';
-
-            const zNorm = gammaToZNorm(c.gamma1);
-            const Z = { re: zNorm.re * z0, im: zNorm.im * z0 };
-            const sign = Z.im >= 0 ? '+' : '-';
-            
-            // 計算 Q 值
-            let Q = 0;
-            if (Math.abs(Z.re) > 1e-9) {
-                Q = Math.abs(Z.im) / Math.abs(Z.re);
-            } else if (Math.abs(Z.im) > 1e-9) {
-                Q = Infinity;
-            }
-            const qStr = Number.isFinite(Q) ? fmt(Q, 2) : '∞';
-            
-            const zStr = `Z = ${fmt(Z.re, 3)} ${sign} j${fmt(Math.abs(Z.im), 3)} Ω | Q = ${qStr}`;
-
-            li.innerHTML = `
-              <div style="display:flex; flex-direction:column; gap:2px;">
-                <div><span class="badge ${badgeClass}">${c.kindStr}</span> ${c.desc}</div>
-                <div style="font-size:11px; color:var(--accent); font-family: monospace;">${zStr}</div>
-              </div>
-              <div style="font-weight:bold; color:var(--muted); font-size: 13px;">[${i+1}]</div>
-            `;
-            compListEl.appendChild(li);
-        });
-        compCountText.textContent = `共 ${components.length} 個元件`;
+    function getEffectiveGamma() {
+      return components.length > 0 ? components[components.length - 1].gamma1 : baseGamma;
     }
 
-    // --- Auto Match Algorithms ---
-    function pathSeriesReactance(zStart, xAdd) {
-      const out = [];
-      for (let i = 0; i <= 60; i++) out.push(zNormToGamma(cAdd(zStart, { re: 0, im: xAdd * (i/60) })));
-      return out;
-    }
-    function pathShuntSusceptance(zStart, bAdd) {
-      const yStart = cInv(zStart);
-      const out = [];
-      for (let i = 0; i <= 60; i++) out.push(zNormToGamma(cInv(cAdd(yStart, { re: 0, im: bAdd * (i/60) }))));
-      return out;
-    }
-    function normalizedToComponentStr(val, w, z0, kind) {
-      if (Math.abs(val) < 1e-12) return `${kind}=0`;
-      const prefix = kind === 'Series' ? '串聯' : '並聯';
-      if (kind === 'Series') {
-          const X = val * z0;
-          return X > 0 ? `${prefix} L=${fmt((X/w)*1e9, 2)}nH` : `${prefix} C=${fmt((-1/(w*X))*1e12, 2)}pF`;
-      } else {
-          const B = val / z0;
-          return B > 0 ? `${prefix} C=${fmt((B/w)*1e12, 2)}pF` : `${prefix} L=${fmt((-1/(w*B))*1e9, 2)}nH`;
+    function recomputeChain() {
+      let currG = baseGamma;
+      const z0 = getZ0();
+      const freqHz = getFreqHz();
+
+      for (let i = 0; i < components.length; i++) {
+        const comp = components[i];
+        const move = calcMove(currG, comp.type, comp.valSI, freqHz, z0);
+        if (!move) {
+          comp.invalid = true;
+          comp.gamma0 = currG;
+          comp.gamma1 = currG;
+          comp.path = [currG, currG];
+        } else {
+          comp.invalid = false;
+          comp.gamma0 = move.gamma0;
+          comp.gamma1 = move.gamma1;
+          comp.path = move.path;
+          currG = move.gamma1;
+        }
       }
     }
 
+    function computeElementPreview() {
+      const type = elemTypeEl.value;
+      const value = parseFloat(elemValueEl.value) || 0;
+      const unit = elemUnitEl.value;
+      const valSI = elemValueSI(type, value, unit);
+      const freqHz = getFreqHz();
+      const z0 = getZ0();
+
+      if (value <= 0 || valSI <= 0) return null;
+      if (type !== 'seriesR' && type !== 'shuntR' && type !== 'transformer' && freqHz <= 0) return null;
+
+      const startG = getEffectiveGamma();
+      const move = calcMove(startG, type, valSI, freqHz, z0);
+      if (!move) return null;
+      return { ...move, type, valSI, unit, value, ...kindAndDesc(type, value, unit) };
+    }
+
+    function updateUIList() {
+      compListEl.innerHTML = '';
+      const z0 = getZ0();
+
+      components.forEach((cItem, i) => {
+        const li = document.createElement('li');
+        let badgeClass = '';
+        if (cItem.type.endsWith('L')) badgeClass = 'ind';
+        else if (cItem.type.endsWith('C')) badgeClass = 'cap';
+        else if (cItem.type.endsWith('R')) badgeClass = 'res';
+        else if (cItem.type === 'transformer') badgeClass = 'tra';
+
+        const zNorm = gammaToZNorm(cItem.gamma1);
+        const Z = { re: zNorm.re * z0, im: zNorm.im * z0 };
+        const q = nodeQFromZ(Z);
+        const zStr = `Z = ${fmtComplex(Z, 'Ω')} | Q = ${Number.isFinite(q) ? fmt(q, 2) : '∞'}`;
+
+        li.innerHTML = `
+          <div style="display:flex; flex-direction:column; gap:2px; min-width:0;">
+            <div><span class="badge ${badgeClass}">${cItem.kindStr}</span> ${cItem.desc}</div>
+            <div style="font-size:11px; color:var(--accent); font-family: monospace; white-space: normal; overflow-wrap:anywhere;">${zStr}</div>
+          </div>
+          <div style="font-weight:bold; color:var(--muted); font-size:13px;">[${i+1}]</div>
+        `;
+        compListEl.appendChild(li);
+      });
+      compCountText.textContent = `共 ${components.length} 個元件`;
+    }
+
+    function pathSeriesReactance(zStart, xAdd) {
+      const out = [];
+      for (let i = 0; i <= 60; i++) out.push(zNormToGamma(cAdd(zStart, c(0, xAdd * (i / 60)))));
+      return out;
+    }
+
+    function pathShuntSusceptance(zStart, bAdd) {
+      const yStart = cInv(zStart);
+      if (!yStart) return [{ re: -1, im: 0 }];
+      const out = [];
+      for (let i = 0; i <= 60; i++) {
+        const yi = cAdd(yStart, c(0, bAdd * (i / 60)));
+        const zi = cInv(yi);
+        out.push(zi ? zNormToGamma(zi) : { re: -1, im: 0 });
+      }
+      return out;
+    }
+
+    function normalizedToComponentObj(val, w, z0, kind) {
+      if (Math.abs(val) < 1e-15) return null;
+      if (kind === 'Series') {
+        const X = val * z0;
+        if (X > 0) {
+          const L = X / w;
+          const useUH = L >= 1e-6;
+          return {
+            type: 'seriesL',
+            value: useUH ? L * 1e6 : L * 1e9,
+            unit: useUH ? 'uH' : 'nH',
+            text: `串聯 L=${fmt(useUH ? L * 1e6 : L * 1e9, 2)}${useUH ? 'uH' : 'nH'}`
+          };
+        }
+        const C = -1 / (w * X);
+        const usePF = C >= 1e-12;
+        return {
+          type: 'seriesC',
+          value: usePF ? C * 1e12 : C * 1e15,
+          unit: usePF ? 'pF' : 'fF',
+          text: `串聯 C=${fmt(usePF ? C * 1e12 : C * 1e15, 2)}${usePF ? 'pF' : 'fF'}`
+        };
+      }
+
+      const B = val / z0;
+      if (B > 0) {
+        const C = B / w;
+        const usePF = C >= 1e-12;
+        return {
+          type: 'shuntC',
+          value: usePF ? C * 1e12 : C * 1e15,
+          unit: usePF ? 'pF' : 'fF',
+          text: `並聯 C=${fmt(usePF ? C * 1e12 : C * 1e15, 2)}${usePF ? 'pF' : 'fF'}`
+        };
+      }
+      const L = -1 / (w * B);
+      const useUH = L >= 1e-6;
+      return {
+        type: 'shuntL',
+        value: useUH ? L * 1e6 : L * 1e9,
+        unit: useUH ? 'uH' : 'nH',
+        text: `並聯 L=${fmt(useUH ? L * 1e6 : L * 1e9, 2)}${useUH ? 'uH' : 'nH'}`
+      };
+    }
+
     function solveLMatch() {
-      const freqHz = (parseFloat(freqEl.value) || 0) * 1e9;
-      const z0 = Math.max(1e-12, parseFloat(z0El.value) || 50);
+      const freqHz = getFreqHz();
+      const z0 = getZ0();
       if (freqHz <= 0) return [];
 
       const targetR = parseFloat(matchTargetREl.value) || 50;
       const targetX = parseFloat(matchTargetXEl.value) || 0;
-      const zInNorm = { re: targetR/z0, im: targetX/z0 };
+      const zInNorm = { re: targetR / z0, im: targetX / z0 };
       const yInNorm = cInv(zInNorm);
+      if (!yInNorm || targetR < 0) return [];
 
       const activeGamma = getEffectiveGamma();
       const z = gammaToZNorm(activeGamma);
-      const rL = z.re, xL = z.im;
       const y = cInv(z);
+      if (!y) return [];
+
+      const rL = z.re, xL = z.im;
       const gL = y.re, bL = y.im;
-      
       const gIn = yInNorm.re, bIn = yInNorm.im;
       const rIn = zInNorm.re, xIn = zInNorm.im;
 
       const sols = [];
       const w = 2 * Math.PI * freqHz;
 
-      if (gIn > 1e-9) {
-          const D = rL / gIn - rL*rL;
-          if (D >= -1e-9) {
-              const root = Math.sqrt(Math.max(0, D));
-              [-1, 1].forEach(sgn => {
-                  const xAdd = sgn * root - xL;
-                  const z1 = cAdd(z, {re:0, im: xAdd});
-                  const y1 = cInv(z1);
-                  const bAdd = bIn - y1.im;
-                  const zEnd = cInv(cAdd(y1, {re:0, im: bAdd}));
-                  sols.push({
-                      title: `[解 ${sols.length+1}]`,
-                      stepsText: [ `1) ${normalizedToComponentStr(xAdd, w, z0, 'Series')}`,
-                                   `2) ${normalizedToComponentStr(bAdd, w, z0, 'Shunt')}` ],
-                      paths: [pathSeriesReactance(z, xAdd), pathShuntSusceptance(z1, bAdd)], zEnd
-                  });
-              });
-          }
+      // Topo 1: Series then Shunt
+      if (gIn > EPS) {
+        const D = rL / gIn - rL * rL;
+        if (D >= -1e-10) {
+          const root = Math.sqrt(Math.max(0, D));
+          [-1, 1].forEach(sgn => {
+            const xAdd = sgn * root - xL;
+            const z1 = cAdd(z, c(0, xAdd));
+            const y1 = cInv(z1);
+            if (!y1) return;
+            const bAdd = bIn - y1.im;
+            const zEnd = cInv(cAdd(y1, c(0, bAdd)));
+            if (!zEnd) return;
+            
+            const s1 = normalizedToComponentObj(xAdd, w, z0, 'Series');
+            const s2 = normalizedToComponentObj(bAdd, w, z0, 'Shunt');
+            if (!s1 && !s2) return;
+
+            const stepsText = [];
+            const steps = [];
+            const paths = [];
+            if (s1) { steps.push(s1); stepsText.push(`${steps.length + 1}) ${s1.text}`); paths.push(pathSeriesReactance(z, xAdd)); }
+            if (s2) { steps.push(s2); stepsText.push(`${steps.length + 1}) ${s2.text}`); paths.push(pathShuntSusceptance(z1, bAdd)); }
+
+            sols.push({
+              title: `[解 ${sols.length + 1}] ` + (steps.length === 1 ? '單元件匹配' : '串聯 → 並聯'),
+              stepsText: stepsText,
+              steps: steps,
+              paths: paths,
+              zEnd,
+              score: Math.abs(xAdd) + Math.abs(bAdd)
+            });
+          });
+        }
       }
 
-      if (rIn > 1e-9) {
-          const D = gL / rIn - gL*gL;
-          if (D >= -1e-9) {
-              const root = Math.sqrt(Math.max(0, D));
-              [-1, 1].forEach(sgn => {
-                  const bAdd = sgn * root - bL;
-                  const y1 = cAdd(y, {re:0, im: bAdd});
-                  const z1 = cInv(y1);
-                  const xAdd = xIn - z1.im;
-                  const zEnd = cAdd(z1, {re:0, im: xAdd});
-                  sols.push({
-                      title: `[解 ${sols.length+1}]`,
-                      stepsText: [ `1) ${normalizedToComponentStr(bAdd, w, z0, 'Shunt')}`,
-                                   `2) ${normalizedToComponentStr(xAdd, w, z0, 'Series')}` ],
-                      paths: [pathShuntSusceptance(z, bAdd), pathSeriesReactance(z1, xAdd)], zEnd
-                  });
-              });
-          }
+      // Topo 2: Shunt then Series
+      if (rIn > EPS) {
+        const D = gL / rIn - gL * gL;
+        if (D >= -1e-10) {
+          const root = Math.sqrt(Math.max(0, D));
+          [-1, 1].forEach(sgn => {
+            const bAdd = sgn * root - bL;
+            const y1 = cAdd(y, c(0, bAdd));
+            const z1 = cInv(y1);
+            if (!z1) return;
+            const xAdd = xIn - z1.im;
+            const zEnd = cAdd(z1, c(0, xAdd));
+            
+            const s1 = normalizedToComponentObj(bAdd, w, z0, 'Shunt');
+            const s2 = normalizedToComponentObj(xAdd, w, z0, 'Series');
+            if (!s1 && !s2) return;
+
+            const stepsText = [];
+            const steps = [];
+            const paths = [];
+            if (s1) { steps.push(s1); stepsText.push(`${steps.length + 1}) ${s1.text}`); paths.push(pathShuntSusceptance(z, bAdd)); }
+            if (s2) { steps.push(s2); stepsText.push(`${steps.length + 1}) ${s2.text}`); paths.push(pathSeriesReactance(z1, xAdd)); }
+
+            sols.push({
+              title: `[解 ${sols.length + 1}] ` + (steps.length === 1 ? '單元件匹配' : '並聯 → 串聯'),
+              stepsText: stepsText,
+              steps: steps,
+              paths: paths,
+              zEnd,
+              score: Math.abs(xAdd) + Math.abs(bAdd)
+            });
+          });
+        }
       }
-      return sols;
+
+      // 去除重複 (單元件匹配容易在兩種拓樸中重複)
+      const uniqueSols = [];
+      sols.forEach(sol => {
+          const isDuplicate = uniqueSols.some(u => {
+              if (u.steps.length !== sol.steps.length) return false;
+              if (u.steps.length === 1) {
+                  return u.steps[0].type === sol.steps[0].type && Math.abs(u.steps[0].value - sol.steps[0].value) < 1e-6;
+              }
+              return false; 
+          });
+          if (!isDuplicate) {
+              sol.title = `[解 ${uniqueSols.length + 1}] ` + (sol.steps.length === 1 ? '單元件直接匹配' : sol.title.split('] ')[1]);
+              uniqueSols.push(sol);
+          }
+      });
+
+      return uniqueSols.sort((a, b) => a.score - b.score);
+    }
+
+    function setApplyMatchButtons() {
+      const enabled = selectedMatchIdx >= 0 && selectedMatchIdx < matchPreviewPaths.length;
+      applyMatchBtn.disabled = !enabled;
+      replaceMatchBtn.disabled = !enabled;
+    }
+
+    function updateMatchSuggestionsUI() {
+      const items = matchSuggestionsEl.querySelectorAll('.match-item');
+      items.forEach((item, idx) => {
+        item.classList.toggle('selected', idx === selectedMatchIdx);
+      });
+      setApplyMatchButtons();
     }
 
     function renderMatchSuggestions() {
       const sols = solveLMatch();
       matchPreviewPaths = sols;
-      selectedMatchIdx = -1; 
-      
+      selectedMatchIdx = -1;
+      setApplyMatchButtons();
+
       if (!sols.length) {
-        matchSuggestionsEl.innerHTML = '<div class="note" style="margin-top:0;">無法計算兩元件 L-Match，請檢查目標值。</div>';
-        render(); return;
+        matchSuggestionsEl.innerHTML = '<div class="note" style="margin-top:0;">無法計算兩元件 L-Match，請檢查目標值與目前節點位置。</div>';
+        render();
+        return;
       }
 
       matchSuggestionsEl.innerHTML = '';
@@ -651,11 +895,7 @@
           <div>${sol.stepsText.join(' ➔ ')}</div>
         `;
         div.onclick = () => {
-          if (selectedMatchIdx === idx) {
-              selectedMatchIdx = -1;
-          } else {
-              selectedMatchIdx = idx;
-          }
+          selectedMatchIdx = (selectedMatchIdx === idx) ? -1 : idx;
           updateMatchSuggestionsUI();
           render();
         };
@@ -665,218 +905,240 @@
       render();
     }
 
-    function updateMatchSuggestionsUI() {
-      const items = matchSuggestionsEl.querySelectorAll('.match-item');
-      items.forEach((item, idx) => {
-        if (idx === selectedMatchIdx) {
-          item.classList.add('selected');
-        } else {
-          item.classList.remove('selected');
-        }
+    function pushComponentFromObj(obj) {
+      const type = obj.type;
+      const value = obj.value;
+      const unit = obj.unit;
+      const valSI = elemValueSI(type, value, unit);
+      components.push({
+        type, value, unit, valSI,
+        ...kindAndDesc(type, value, unit)
       });
     }
 
-    // --- Drawing ---
-    function gammaToCanvas(g) { return { x: cx + g.re * R, y: cy - g.im * R }; }
-    function canvasToGamma(x, y) {
-      let re = (x - cx) / R, im = -(y - cy) / R;
-      const mag = Math.hypot(re, im);
-      if (mag > 0.999) { re *= 0.999/mag; im *= 0.999/mag; }
-      return { re, im };
+    function applySelectedMatch(clearFirst = false) {
+      if (selectedMatchIdx < 0 || selectedMatchIdx >= matchPreviewPaths.length) return;
+      const sol = matchPreviewPaths[selectedMatchIdx];
+      if (clearFirst) components = [];
+      sol.steps.forEach(pushComponentFromObj);
+      elementPreview = null;
+      refreshAll({ recompute: true, rematch: true, list: true });
     }
-    function zNormToGamma(z) { return cDiv(cSub(z, {re:1, im:0}), cAdd(z, {re:1, im:0})); }
-    function gammaToZNorm(g) { return cDiv(cAdd({re:1, im:0}, g), cSub({re:1, im:0}, g)); }
 
     function drawCircle(x, y, r, color, lw = 1) {
-      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
-      ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = lw;
+      ctx.stroke();
     }
-    function drawArc(cx_a, cy_a, rad, color, lw) {
-      ctx.save(); ctx.beginPath(); ctx.arc(cx_a, cy_a, rad, 0, Math.PI * 2);
-      ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.stroke(); ctx.restore();
+
+    function drawArc(xc, yc, rad, color, lw = 1) {
+      ctx.beginPath();
+      ctx.arc(xc, yc, rad, 0, Math.PI * 2);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = lw;
+      ctx.stroke();
     }
 
     function drawSmithGrid() {
       drawCircle(cx, cy, R, '#7bdff2', 2);
-      drawCircle(cx, cy, 1.0, '#7bdff2', 1);
 
-      ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, R, 0, Math.PI * 2);
+      ctx.clip();
 
       const rMajor = [0.2, 0.5, 1, 2, 5];
       const xMajor = [0.2, 0.5, 1, 2, 5];
       const rMinor = [0.1, 0.3, 0.7, 1.5, 3, 10];
       const xMinor = [0.1, 0.3, 0.7, 1.5, 3, 10];
 
-      rMinor.forEach(r => drawCircle(cx + R*(r/(1+r)), cy, R/(1+r), 'rgba(120,150,255,0.16)'));
+      rMinor.forEach(r => drawCircle(cx + R * (r / (1 + r)), cy, R / (1 + r), 'rgba(120,150,255,0.16)'));
       xMinor.forEach(x => {
-          drawArc(cx+R, cy - R/x, Math.abs(R/x), 'rgba(120,150,255,0.16)', 1);
-          drawArc(cx+R, cy + R/x, Math.abs(R/x), 'rgba(120,150,255,0.16)', 1);
+        drawArc(cx + R, cy - R / x, Math.abs(R / x), 'rgba(120,150,255,0.16)', 1);
+        drawArc(cx + R, cy + R / x, Math.abs(R / x), 'rgba(120,150,255,0.16)', 1);
       });
-      rMajor.forEach(r => drawCircle(cx + R*(r/(1+r)), cy, R/(1+r), 'rgba(123,223,242,0.6)', r===1?1.8:1));
+      rMajor.forEach(r => drawCircle(cx + R * (r / (1 + r)), cy, R / (1 + r), 'rgba(123,223,242,0.6)', r === 1 ? 1.8 : 1));
       xMajor.forEach(x => {
-          drawArc(cx+R, cy - R/x, Math.abs(R/x), 'rgba(123,223,242,0.6)', Math.abs(x)===1?1.6:1);
-          drawArc(cx+R, cy + R/x, Math.abs(R/x), 'rgba(123,223,242,0.6)', Math.abs(x)===1?1.6:1);
+        drawArc(cx + R, cy - R / x, Math.abs(R / x), 'rgba(123,223,242,0.6)', Math.abs(x) === 1 ? 1.6 : 1);
+        drawArc(cx + R, cy + R / x, Math.abs(R / x), 'rgba(123,223,242,0.6)', Math.abs(x) === 1 ? 1.6 : 1);
       });
-
       ctx.restore();
-      ctx.beginPath(); ctx.moveTo(cx-R, cy); ctx.lineTo(cx+R, cy); ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.stroke();
 
-      ctx.fillStyle = 'rgba(234,240,255,0.8)'; ctx.font = '14px Arial'; ctx.textAlign = 'center';
-      ctx.fillText('0', cx - R + 12, cy - 8); ctx.fillText('∞', cx + R - 12, cy - 8);
-      ctx.fillText('+jX', cx, cy - R - 10); ctx.fillText('-jX', cx, cy + R + 18);
+      ctx.beginPath();
+      ctx.moveTo(cx - R, cy);
+      ctx.lineTo(cx + R, cy);
+      ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+      ctx.stroke();
+
+      ctx.fillStyle = 'rgba(234,240,255,0.8)';
+      ctx.font = '14px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('0', cx - R + 12, cy - 8);
+      ctx.fillText('∞', cx + R - 12, cy - 8);
+      ctx.fillText('+jX', cx, cy - R - 10);
+      ctx.fillText('-jX', cx, cy + R + 18);
 
       if (showLabelsCb.checked) {
-          const z0 = Math.max(1e-12, parseFloat(z0El.value) || 50);
+        const z0 = getZ0();
+        ctx.save();
+        ctx.fillStyle = 'rgba(234, 240, 255, 0.9)';
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
 
-          ctx.save();
-          ctx.fillStyle = 'rgba(234, 240, 255, 0.9)';
-          ctx.font = '12px Arial';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
+        rMajor.forEach(r => {
+          const gre = (r - 1) / (r + 1);
+          const px = cx + R * gre;
+          const displayR = Number((r * z0).toFixed(2)).toString();
+          ctx.lineWidth = 2.5;
+          ctx.strokeStyle = '#0b1020';
+          ctx.strokeText(displayR, px - 8, cy + 12);
+          ctx.fillText(displayR, px - 8, cy + 12);
+        });
 
-          rMajor.forEach(r => {
-              const gre = (r - 1) / (r + 1);
-              const px = cx + R * gre;
-              const displayR = Number((r * z0).toFixed(2)).toString();
-              
-              ctx.lineWidth = 2.5; ctx.strokeStyle = '#0b1020';
-              ctx.strokeText(displayR, px - 8, cy + 12);
-              ctx.fillText(displayR, px - 8, cy + 12);
-          });
-
-          xMajor.forEach(x => {
-              const gre = (x * x - 1) / (x * x + 1);
-              const gim = (2 * x) / (x * x + 1);
-              const displayX = Number((x * z0).toFixed(2)).toString();
-              
-              let px = cx + R * gre, py = cy - R * gim;
-              let ux = -gre, uy = gim; 
-              ctx.lineWidth = 2.5; ctx.strokeStyle = '#0b1020';
-              ctx.strokeText('j' + displayX, px + ux * 16, py + uy * 16);
-              ctx.fillText('j' + displayX, px + ux * 16, py + uy * 16);
-
-              px = cx + R * gre; py = cy + R * gim;
-              ux = -gre; uy = -gim;
-              ctx.strokeText('-j' + displayX, px + ux * 16, py + uy * 16);
-              ctx.fillText('-j' + displayX, px + ux * 16, py + uy * 16);
-          });
-          ctx.restore();
+        xMajor.forEach(x => {
+          const gre = (x * x - 1) / (x * x + 1);
+          const gim = (2 * x) / (x * x + 1);
+          const displayX = Number((x * z0).toFixed(2)).toString();
+          let px = cx + R * gre, py = cy - R * gim;
+          let ux = -gre, uy = gim;
+          ctx.lineWidth = 2.5;
+          ctx.strokeStyle = '#0b1020';
+          ctx.strokeText('j' + displayX, px + ux * 16, py + uy * 16);
+          ctx.fillText('j' + displayX, px + ux * 16, py + uy * 16);
+          px = cx + R * gre; py = cy + R * gim;
+          ux = -gre; uy = -gim;
+          ctx.strokeText('-j' + displayX, px + ux * 16, py + uy * 16);
+          ctx.fillText('-j' + displayX, px + ux * 16, py + uy * 16);
+        });
+        ctx.restore();
       }
     }
 
     function drawPathLabel(comp, pathColorHex) {
-        if (!comp.path || comp.path.length < 2) return;
-        const midIdx = Math.floor(comp.path.length / 2);
-        const midP = gammaToCanvas(comp.path[midIdx]);
-        
-        let labelStr = '';
-        if (comp.type === 'transformer') {
-            labelStr = `N=${fmt(comp.value, 2)}`; // 四捨五入到 2 位
-        } else {
-            let compStr = comp.type.endsWith('L') ? 'L' : (comp.type.endsWith('C') ? 'C' : 'R');
-            let unitStr = comp.unit === 'ohm' ? 'Ω' : (comp.unit === 'kOhm' ? 'kΩ' : comp.unit);
-            labelStr = `${compStr}=${fmt(comp.value, 2)}${unitStr}`; // 四捨五入到 2 位
-        }
-        
-        ctx.save();
-        ctx.font = 'bold 14px Arial';
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'middle';
-        
-        ctx.lineWidth = 3.5;
-        ctx.strokeStyle = '#0b1020';
-        ctx.strokeText(labelStr, midP.x + 8, midP.y);
-        ctx.fillStyle = pathColorHex;
-        ctx.fillText(labelStr, midP.x + 8, midP.y);
-        ctx.restore();
+      if (!comp.path || comp.path.length < 2) return;
+      const midIdx = Math.floor(comp.path.length / 2);
+      const midP = gammaToCanvas(comp.path[midIdx]);
+
+      let labelStr = '';
+      if (comp.type === 'transformer') {
+        labelStr = `N=${fmt(comp.value, 2)}`;
+      } else {
+        const compStr = comp.type.endsWith('L') ? 'L' : (comp.type.endsWith('C') ? 'C' : 'R');
+        const unitStr = comp.unit === 'ohm' ? 'Ω' : (comp.unit === 'kOhm' ? 'kΩ' : comp.unit);
+        labelStr = `${compStr}=${fmt(comp.value, 2)}${unitStr}`;
+      }
+
+      ctx.save();
+      ctx.font = 'bold 14px Arial';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.lineWidth = 3.5;
+      ctx.strokeStyle = '#0b1020';
+      ctx.strokeText(labelStr, midP.x + 8, midP.y);
+      ctx.fillStyle = pathColorHex;
+      ctx.fillText(labelStr, midP.x + 8, midP.y);
+      ctx.restore();
     }
 
     function drawChainAndPreview() {
       if (components.length > 0) {
         ctx.save();
         components.forEach((comp, idx) => {
-            const pathColorHex = getPathColorHex(comp.type);
-            
-            ctx.beginPath();
-            comp.path.forEach((g, i) => {
-                const p = gammaToCanvas(g);
-                if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
-            });
-            ctx.strokeStyle = pathColorHex;
-            ctx.lineWidth = 3.5;
-            ctx.stroke();
+          const pathColorHex = getPathColorHex(comp.type);
+          ctx.beginPath();
+          comp.path.forEach((g, i) => {
+            const p = gammaToCanvas(g);
+            if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+          });
+          ctx.strokeStyle = pathColorHex;
+          ctx.lineWidth = 3.5;
+          ctx.stroke();
 
-            drawPathLabel(comp, pathColorHex);
+          drawPathLabel(comp, pathColorHex);
 
-            const pEnd = gammaToCanvas(comp.gamma1);
-            ctx.beginPath(); ctx.arc(pEnd.x, pEnd.y, 6, 0, Math.PI*2);
-            ctx.fillStyle = '#fff'; ctx.fill();
-            ctx.lineWidth = 2; ctx.strokeStyle = '#000'; ctx.stroke();
+          const pEnd = gammaToCanvas(comp.gamma1);
+          ctx.beginPath();
+          ctx.arc(pEnd.x, pEnd.y, 6, 0, Math.PI * 2);
+          ctx.fillStyle = '#fff';
+          ctx.fill();
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = '#000';
+          ctx.stroke();
 
-            ctx.fillStyle = '#111'; ctx.font = 'bold 9px Arial'; ctx.textAlign = 'center'; ctx.textBaseline='middle';
-            ctx.fillText(idx + 1, pEnd.x, pEnd.y);
+          ctx.fillStyle = '#111';
+          ctx.font = 'bold 9px Arial';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(idx + 1, pEnd.x, pEnd.y);
         });
         ctx.restore();
       }
 
       if (elementPreview && elementPreview.path.length > 0) {
-        ctx.save(); 
+        ctx.save();
         const pathColorHex = getPathColorHex(elementPreview.type);
-        
         ctx.beginPath();
         elementPreview.path.forEach((g, idx) => {
           const p = gammaToCanvas(g);
           if (idx === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
         });
         ctx.setLineDash([5, 5]);
-        ctx.strokeStyle = pathColorHex; ctx.lineWidth = 3.5; ctx.stroke();
+        ctx.strokeStyle = pathColorHex;
+        ctx.lineWidth = 3.5;
+        ctx.stroke();
         ctx.setLineDash([]);
 
         drawPathLabel(elementPreview, pathColorHex);
 
         const pEnd = gammaToCanvas(elementPreview.gamma1);
-        ctx.beginPath(); ctx.arc(pEnd.x, pEnd.y, 5, 0, Math.PI*2);
-        ctx.fillStyle = '#7ae582'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(pEnd.x, pEnd.y, 5, 0, Math.PI * 2);
+        ctx.fillStyle = '#7ae582';
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#fff';
+        ctx.stroke();
         ctx.restore();
       }
 
       if (matchPreviewPaths.length > 0) {
-        const colors = ['#ffad66', '#7bdff2', '#c084fc', '#4ade80']; 
+        const colors = ['#ffad66', '#7bdff2', '#c084fc', '#4ade80'];
         matchPreviewPaths.forEach((sol, idx) => {
-          
           const isSelected = (selectedMatchIdx === idx);
           const hasSelection = (selectedMatchIdx !== -1);
-          
           let alpha = 0.85;
           if (hasSelection && !isSelected) alpha = 0.15;
           if (isSelected) alpha = 1.0;
-
           const color = colors[idx % colors.length];
 
           ctx.save();
           ctx.globalAlpha = alpha;
-          
           sol.paths.forEach((path, pidx) => {
-            if(!path || path.length < 2) return;
+            if (!path || path.length < 2) return;
             ctx.beginPath();
             path.forEach((g, k) => {
               const p = gammaToCanvas(g);
               if (k === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
             });
-            ctx.strokeStyle = color; 
-            ctx.lineWidth = isSelected ? 4.5 : 3; 
-            ctx.setLineDash(pidx === 0 ? [6, 6] : []); 
-            ctx.stroke(); 
+            ctx.strokeStyle = color;
+            ctx.lineWidth = isSelected ? 4.5 : 3;
+            ctx.setLineDash(pidx === 0 ? [6, 6] : []);
+            ctx.stroke();
           });
 
           const targ = gammaToCanvas(zNormToGamma(sol.zEnd));
-          ctx.beginPath(); ctx.arc(targ.x, targ.y, isSelected ? 7 : 5, 0, Math.PI*2);
-          ctx.fillStyle = color; ctx.fill();
-          
+          ctx.beginPath();
+          ctx.arc(targ.x, targ.y, isSelected ? 7 : 5, 0, Math.PI * 2);
+          ctx.fillStyle = color;
+          ctx.fill();
           if (isSelected) {
-            ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; ctx.stroke();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#fff';
+            ctx.stroke();
           }
-
           ctx.restore();
         });
       }
@@ -884,21 +1146,20 @@
 
     function drawBasePoint() {
       const p = gammaToCanvas(baseGamma);
-      ctx.save(); ctx.beginPath(); ctx.arc(p.x, p.y, 7, 0, Math.PI * 2);
-      ctx.fillStyle = '#ff6b6b'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; ctx.stroke();
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 7, 0, Math.PI * 2);
+      ctx.fillStyle = '#ff6b6b';
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#fff';
+      ctx.stroke();
       ctx.restore();
     }
 
-    function render() {
-      ctx.clearRect(0, 0, W, H);
-      drawSmithGrid();
-      drawChainAndPreview();
-      drawBasePoint();
-
-      // 繪製左下角的起點與終點阻抗資訊表
-      const z0 = Math.max(1e-12, parseFloat(z0El.value) || 50);
+    function drawStartEndBox() {
+      const z0 = getZ0();
       const activeGamma = elementPreview ? elementPreview.gamma1 : getEffectiveGamma();
-
       const sZNorm = gammaToZNorm(baseGamma);
       const sZ = { re: sZNorm.re * z0, im: sZNorm.im * z0 };
       const eZNorm = gammaToZNorm(activeGamma);
@@ -908,282 +1169,391 @@
       const endText = fmtComplex(eZ, 'Ω');
 
       ctx.save();
-      const boxW = 240;
+      const boxW = 260;
       const boxH = 60;
       const padding = 12;
-      const bx = 16; 
+      const bx = 16;
       const by = H - boxH - 16;
 
       ctx.fillStyle = 'rgba(18, 25, 51, 0.9)';
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
       ctx.lineWidth = 1.5;
-      
       ctx.beginPath();
-      const r = 8;
-      ctx.moveTo(bx + r, by);
-      ctx.lineTo(bx + boxW - r, by);
-      ctx.quadraticCurveTo(bx + boxW, by, bx + boxW, by + r);
-      ctx.lineTo(bx + boxW, by + boxH - r);
-      ctx.quadraticCurveTo(bx + boxW, by + boxH, bx + boxW - r, by + boxH);
-      ctx.lineTo(bx + r, by + boxH);
-      ctx.quadraticCurveTo(bx, by + boxH, bx, by + boxH - r);
-      ctx.lineTo(bx, by + r);
-      ctx.quadraticCurveTo(bx, by, bx + r, by);
+      const rr = 8;
+      ctx.moveTo(bx + rr, by);
+      ctx.lineTo(bx + boxW - rr, by);
+      ctx.quadraticCurveTo(bx + boxW, by, bx + boxW, by + rr);
+      ctx.lineTo(bx + boxW, by + boxH - rr);
+      ctx.quadraticCurveTo(bx + boxW, by + boxH, bx + boxW - rr, by + boxH);
+      ctx.lineTo(bx + rr, by + boxH);
+      ctx.quadraticCurveTo(bx, by + boxH, bx, by + boxH - rr);
+      ctx.lineTo(bx, by + rr);
+      ctx.quadraticCurveTo(bx, by, bx + rr, by);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
 
       ctx.beginPath();
-      ctx.moveTo(bx + padding, by + boxH/2);
-      ctx.lineTo(bx + boxW - padding, by + boxH/2);
+      ctx.moveTo(bx + padding, by + boxH / 2);
+      ctx.lineTo(bx + boxW - padding, by + boxH / 2);
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
       ctx.stroke();
 
       ctx.textBaseline = 'middle';
-      
       ctx.font = 'bold 13px Arial';
       ctx.textAlign = 'left';
       ctx.fillStyle = '#ff6b6b';
-      ctx.fillText('起點 Z', bx + padding, by + boxH/4);
+      ctx.fillText('起點 Z', bx + padding, by + boxH / 4);
       ctx.font = '13px monospace';
       ctx.textAlign = 'right';
-      ctx.fillText(startText, bx + boxW - padding, by + boxH/4);
+      ctx.fillStyle = '#fff';
+      ctx.fillText(startText, bx + boxW - padding, by + boxH / 4);
 
       ctx.font = 'bold 13px Arial';
       ctx.textAlign = 'left';
       ctx.fillStyle = '#7bdff2';
-      ctx.fillText('終點 Z', bx + padding, by + boxH * 3/4);
+      ctx.fillText('終點 Z', bx + padding, by + boxH * 3 / 4);
       ctx.font = '13px monospace';
       ctx.textAlign = 'right';
-      ctx.fillText(endText, bx + boxW - padding, by + boxH * 3/4);
-
+      ctx.fillStyle = '#fff';
+      ctx.fillText(endText, bx + boxW - padding, by + boxH * 3 / 4);
       ctx.restore();
     }
 
-    // --- Interactivity ---
-    function updateInputsFromBaseGamma() {
-      const z0 = Math.max(1e-12, parseFloat(z0El.value) || 50);
-      const zNorm = gammaToZNorm(baseGamma);
-      realEl.value = fmt(zNorm.re * z0, 3); imagEl.value = fmt(zNorm.im * z0, 3);
+    function render() {
+      ctx.clearRect(0, 0, W, H);
+      drawSmithGrid();
+      drawChainAndPreview();
+      drawBasePoint();
+      drawStartEndBox();
     }
-    
+
+    function updateInputsFromBaseGamma() {
+      const z0 = getZ0();
+      const zNorm = gammaToZNorm(baseGamma);
+      realEl.value = fmt(zNorm.re * z0, 3);
+      imagEl.value = fmt(zNorm.im * z0, 3);
+    }
+
     function updateReadout() {
-      const z0 = Math.max(1e-12, parseFloat(z0El.value) || 50);
-      
+      const z0 = getZ0();
       const activeGamma = elementPreview ? elementPreview.gamma1 : getEffectiveGamma();
       const zNorm = gammaToZNorm(activeGamma);
-      const mag = cAbs(activeGamma), ang = cAngDeg(activeGamma);
+      const mag = cAbs(activeGamma);
+      const ang = cAngDeg(activeGamma);
       const vswr = mag >= 0.999999 ? Infinity : (1 + mag) / (1 - mag);
-      const Z = {re: zNorm.re*z0, im: zNorm.im*z0};
-      
-      let Q = 0;
-      if (Math.abs(Z.re) > 1e-9) {
-          Q = Math.abs(Z.im) / Math.abs(Z.re);
-      } else if (Math.abs(Z.im) > 1e-9) {
-          Q = Infinity;
-      }
+      const Z = { re: zNorm.re * z0, im: zNorm.im * z0 };
+      const Y = cInv(Z);
+      const q = nodeQFromZ(Z);
+      const zMag = cAbs(Z);
 
       gammaText.textContent = fmtComplex(activeGamma);
-      gammaMag.textContent = fmt(mag, 3);
+      gammaMag.textContent = fmt(mag, 4);
       gammaAng.textContent = `${fmt(ang, 3)}°`;
       vswrText.textContent = Number.isFinite(vswr) ? fmt(vswr, 3) : '∞';
-      qText.textContent = Number.isFinite(Q) ? fmt(Q, 3) : '∞';
+      qText.textContent = Number.isFinite(q) ? fmt(q, 3) : '∞';
       znText.textContent = fmtComplex(zNorm);
       zText.textContent = fmtComplex(Z, 'Ω');
-      yText.textContent = fmtComplex(cInv(Z), 'S');
+      zMagText.textContent = Number.isFinite(zMag) ? fmt(zMag, 3) : '∞';
+      yText.textContent = Y ? fmtComplex(Y, 'S') : '∞';
+      previewIndicator.style.display = elementPreview ? 'inline' : 'none';
+    }
 
-      if (elementPreview) {
-          previewIndicator.style.display = 'inline';
-      } else {
-          previewIndicator.style.display = 'none';
-      }
+    function refreshAll({ recompute = true, rematch = false, list = true } = {}) {
+      if (recompute) recomputeChain();
+      if (rematch && matchPreviewPaths.length > 0) renderMatchSuggestions();
+      render();
+      updateReadout();
+      if (list) updateUIList();
     }
 
     function applyBaseInputs() {
-      const r = parseFloat(realEl.value) || 0, x = parseFloat(imagEl.value) || 0;
-      const z0 = Math.max(1e-12, parseFloat(z0El.value) || 50);
-      baseGamma = zNormToGamma({ re: r/z0, im: x/z0 });
-      elementPreview = null; 
-      recomputeChain(); 
-      if(matchPreviewPaths.length > 0) renderMatchSuggestions();
-      render(); updateReadout(); updateUIList();
+      const r = parseFloat(realEl.value) || 0;
+      const x = parseFloat(imagEl.value) || 0;
+      const z0 = getZ0();
+      baseGamma = clampGamma(zNormToGamma({ re: r / z0, im: x / z0 }));
+      elementPreview = null;
+      refreshAll({ recompute: true, rematch: true, list: true });
     }
 
     function pointerPos(evt) {
       const rect = canvas.getBoundingClientRect();
-      return { x: (evt.clientX - rect.left) * (canvas.width / rect.width),
-               y: (evt.clientY - rect.top) * (canvas.height / rect.height) };
+      return {
+        x: (evt.clientX - rect.left) * (canvas.width / rect.width),
+        y: (evt.clientY - rect.top) * (canvas.height / rect.height)
+      };
     }
 
-    elemTypeEl.addEventListener('change', () => {
-        const t = elemTypeEl.value;
-        if (t.endsWith('L')) elemUnitEl.value = 'nH';
-        else if (t.endsWith('C')) elemUnitEl.value = 'pF';
-        else if (t.endsWith('R')) elemUnitEl.value = 'ohm';
-        else if (t === 'transformer') elemUnitEl.value = 'N';
-        
-        elementPreview = computeElementPreview(); 
-        render(); updateReadout();
-    });
+    function setDragHint() {
+      const mode = document.querySelector('input[name="mouseMode"]:checked').value;
+      const hintMap = {
+        point: '目前模式：起點拖曳',
+        series: '目前模式：固定 r circle 上移動（串聯 L/C）',
+        shunt: '目前模式：固定 g circle 上移動（並聯 L/C）',
+        seriesR: '目前模式：固定 x 軌跡（串聯 R）',
+        shuntR: '目前模式：固定 b 軌跡（並聯 R）',
+        transformer: '目前模式：沿 z 平面同射線縮放（理想變壓器 1:N）'
+      };
+      dragHint.textContent = hintMap[mode] || '目前模式';
+    }
+
+    function setElemUnitByType() {
+      const t = elemTypeEl.value;
+      if (t.endsWith('L')) elemUnitEl.value = 'nH';
+      else if (t.endsWith('C')) elemUnitEl.value = 'pF';
+      else if (t.endsWith('R')) elemUnitEl.value = 'ohm';
+      else if (t === 'transformer') elemUnitEl.value = 'N';
+    }
+
+    function updatePreviewFromEditor() {
+      elementPreview = computeElementPreview();
+      render();
+      updateReadout();
+    }
+
+    function projectToSeriesLC(startG, mouseG) {
+      const zNorm0 = gammaToZNorm(startG);
+      const r = zNorm0.re;
+      const cxn = r / (r + 1);
+      const rad = 1 / (r + 1);
+      const mp = gammaToCanvas(mouseG);
+      const dx = (mp.x - cx) / R - cxn;
+      const dy = -(mp.y - cy) / R;
+      const theta = Math.atan2(dy, dx);
+      let gre = cxn + rad * Math.cos(theta);
+      let gim = rad * Math.sin(theta);
+      if (Math.hypot(gre - 1, gim) < 1e-4) { gre = 1 - 1e-4; gim = 0; }
+      const zNew = gammaToZNorm({ re: gre, im: gim });
+      return zNew.im - zNorm0.im;
+    }
+
+    function projectToShuntLC(startG, mouseG) {
+      const zNorm0 = gammaToZNorm(startG);
+      const yNorm0 = cInv(zNorm0);
+      if (!yNorm0) return 0;
+      const g = yNorm0.re;
+      const cxn = -g / (g + 1);
+      const rad = 1 / (g + 1);
+      const mp = gammaToCanvas(mouseG);
+      const dx = (mp.x - cx) / R - cxn;
+      const dy = -(mp.y - cy) / R;
+      const theta = Math.atan2(dy, dx);
+      let gre = cxn + rad * Math.cos(theta);
+      let gim = rad * Math.sin(theta);
+      if (Math.hypot(gre + 1, gim) < 1e-4) { gre = -1 + 1e-4; gim = 0; }
+      const yNew = cInv(gammaToZNorm({ re: gre, im: gim }));
+      return yNew ? (yNew.im - yNorm0.im) : 0;
+    }
+
+    function projectToSeriesR(startG, mouseG) {
+      const zNorm0 = gammaToZNorm(startG);
+      const zMouse = gammaToZNorm(mouseG);
+      return Math.max(0, zMouse.re - zNorm0.re);
+    }
+
+    function projectToShuntR(startG, mouseG) {
+      const zNorm0 = gammaToZNorm(startG);
+      const yNorm0 = cInv(zNorm0);
+      const yMouse = cInv(gammaToZNorm(mouseG));
+      if (!yNorm0 || !yMouse) return 1e-9;
+      return Math.max(1e-9, yMouse.re - yNorm0.re);
+    }
+
+    function projectToTransformerScale(startG, mouseG) {
+      const zNorm0 = gammaToZNorm(startG);
+      const zMouse = gammaToZNorm(mouseG);
+      const denom = zNorm0.re * zNorm0.re + zNorm0.im * zNorm0.im;
+      if (denom < 1e-18) return 1;
+      let scale = (zMouse.re * zNorm0.re + zMouse.im * zNorm0.im) / denom;
+      if (!Number.isFinite(scale)) scale = 1;
+      scale = Math.max(1e-6, scale);
+      return scale;
+    }
+
+    function updateEditorFromDraggedMode(mode, mouseG) {
+      const z0 = getZ0();
+      const freqHz = getFreqHz();
+      const w = 2 * Math.PI * Math.max(freqHz, EPS);
+      const startG = getEffectiveGamma();
+
+      if (mode === 'series') {
+        const xAdd = projectToSeriesLC(startG, mouseG);
+        const X = xAdd * z0;
+        if (X >= 0) {
+          elemTypeEl.value = 'seriesL';
+          const L = X / w;
+          if (L >= 1e-6) { elemUnitEl.value = 'uH'; elemValueEl.value = fmt(L * 1e6, 4); }
+          else { elemUnitEl.value = 'nH'; elemValueEl.value = fmt(L * 1e9, 4); }
+        } else {
+          elemTypeEl.value = 'seriesC';
+          const C = -1 / (w * X);
+          if (C >= 1e-12) { elemUnitEl.value = 'pF'; elemValueEl.value = fmt(C * 1e12, 4); }
+          else { elemUnitEl.value = 'fF'; elemValueEl.value = fmt(C * 1e15, 4); }
+        }
+      } else if (mode === 'shunt') {
+        const bAdd = projectToShuntLC(startG, mouseG);
+        const B = bAdd / z0;
+        if (B >= 0) {
+          elemTypeEl.value = 'shuntC';
+          const C = B / w;
+          if (C >= 1e-12) { elemUnitEl.value = 'pF'; elemValueEl.value = fmt(C * 1e12, 4); }
+          else { elemUnitEl.value = 'fF'; elemValueEl.value = fmt(C * 1e15, 4); }
+        } else {
+          elemTypeEl.value = 'shuntL';
+          const L = -1 / (w * B);
+          if (L >= 1e-6) { elemUnitEl.value = 'uH'; elemValueEl.value = fmt(L * 1e6, 4); }
+          else { elemUnitEl.value = 'nH'; elemValueEl.value = fmt(L * 1e9, 4); }
+        }
+      } else if (mode === 'seriesR') {
+        const drNorm = projectToSeriesR(startG, mouseG);
+        elemTypeEl.value = 'seriesR';
+        elemUnitEl.value = 'ohm';
+        elemValueEl.value = fmt(drNorm * z0, 4);
+      } else if (mode === 'shuntR') {
+        const dgNorm = projectToShuntR(startG, mouseG);
+        elemTypeEl.value = 'shuntR';
+        elemUnitEl.value = 'ohm';
+        elemValueEl.value = fmt(z0 / dgNorm, 4);
+      } else if (mode === 'transformer') {
+        const scale = projectToTransformerScale(startG, mouseG);
+        elemTypeEl.value = 'transformer';
+        elemUnitEl.value = 'N';
+        elemValueEl.value = fmt(Math.sqrt(scale), 4);
+      }
+    }
 
     function onMove(evt) {
       if (!dragging) return;
       const p = pointerPos(evt);
       const mode = document.querySelector('input[name="mouseMode"]:checked').value;
-      const z0 = Math.max(1e-12, parseFloat(z0El.value) || 50);
-      const freqHz = (parseFloat(freqEl.value) || 0) * 1e9;
-      const w = 2 * Math.PI * freqHz;
+      const mouseG = canvasToGamma(p.x, p.y);
 
       if (mode === 'point') {
-          baseGamma = canvasToGamma(p.x, p.y);
-          updateInputsFromBaseGamma();
-          elementPreview = null; 
-          recomputeChain();
-          if(matchPreviewPaths.length > 0) renderMatchSuggestions();
-      } else {
-          const startG = getEffectiveGamma();
-          const zNorm0 = gammaToZNorm(startG);
-          const yNorm0 = cInv(zNorm0);
-          
-          let dx, dy, theta, gre, gim;
-          if (mode === 'series') {
-              const r = zNorm0.re;
-              const cx_norm = r / (r + 1), rad_norm = 1 / (r + 1);
-              dx = (p.x - cx)/R - cx_norm; dy = -(p.y - cy)/R;
-              theta = Math.atan2(dy, dx);
-              gre = cx_norm + rad_norm * Math.cos(theta); gim = rad_norm * Math.sin(theta);
-              if (Math.hypot(gre - 1, gim) < 1e-4) { gre = 1 - 1e-4; gim = 0; }
-              const zNew = gammaToZNorm({re: gre, im: gim});
-              
-              const valAdd = zNew.im - zNorm0.im;
-              const X = valAdd * z0;
-              if (X >= 0) { elemTypeEl.value = 'seriesL'; elemUnitEl.value = 'nH'; elemValueEl.value = fmt((X/w)*1e9, 3); } 
-              else { elemTypeEl.value = 'seriesC'; elemUnitEl.value = 'pF'; elemValueEl.value = fmt((-1/(w*X))*1e12, 3); }
-
-          } else if (mode === 'shunt') {
-              const g = yNorm0.re;
-              const cx_norm = -g / (g + 1), rad_norm = 1 / (g + 1);
-              dx = (p.x - cx)/R - cx_norm; dy = -(p.y - cy)/R;
-              theta = Math.atan2(dy, dx);
-              gre = cx_norm + rad_norm * Math.cos(theta); gim = rad_norm * Math.sin(theta);
-              if (Math.hypot(gre + 1, gim) < 1e-4) { gre = -1 + 1e-4; gim = 0; }
-              const yNew = cInv(gammaToZNorm({re: gre, im: gim}));
-
-              const valAdd = yNew.im - yNorm0.im;
-              const B = valAdd / z0;
-              if (B >= 0) { elemTypeEl.value = 'shuntC'; elemUnitEl.value = 'pF'; elemValueEl.value = fmt((B/w)*1e12, 3); } 
-              else { elemTypeEl.value = 'shuntL'; elemUnitEl.value = 'nH'; elemValueEl.value = fmt((-1/(w*B))*1e9, 3); }
-
-          } else if (mode === 'seriesR') {
-              const zMouse = gammaToZNorm(canvasToGamma(p.x, p.y));
-              let drNorm = zMouse.re - zNorm0.re;
-              if (drNorm < 0) drNorm = 0;
-              elemTypeEl.value = 'seriesR'; elemUnitEl.value = 'ohm'; elemValueEl.value = fmt(drNorm * z0, 3);
-
-          } else if (mode === 'shuntR') {
-              const yMouse = cInv(gammaToZNorm(canvasToGamma(p.x, p.y)));
-              let dgNorm = yMouse.re - yNorm0.re;
-              if (dgNorm <= 1e-9) dgNorm = 1e-9;
-              elemTypeEl.value = 'shuntR'; elemUnitEl.value = 'ohm'; elemValueEl.value = fmt(1 / (dgNorm / z0), 3);
-
-          } else if (mode === 'transformer') {
-              const zMouse = gammaToZNorm(canvasToGamma(p.x, p.y));
-              const magOld = Math.hypot(zNorm0.re, zNorm0.im);
-              const magMouse = Math.hypot(zMouse.re, zMouse.im);
-              let N2 = magOld > 1e-9 ? magMouse / magOld : 1;
-              elemTypeEl.value = 'transformer'; elemUnitEl.value = 'N'; elemValueEl.value = fmt(Math.sqrt(N2), 3);
-          }
-          elementPreview = computeElementPreview();
+        baseGamma = mouseG;
+        updateInputsFromBaseGamma();
+        elementPreview = null;
+        refreshAll({ recompute: true, rematch: true, list: true });
+        return;
       }
-      render(); updateReadout();
+
+      updateEditorFromDraggedMode(mode, mouseG);
+      elementPreview = computeElementPreview();
+      render();
+      updateReadout();
     }
 
     canvas.addEventListener('mousedown', (evt) => {
       const mode = document.querySelector('input[name="mouseMode"]:checked').value;
       const p = pointerPos(evt);
+      const gp = gammaToCanvas(baseGamma);
       if (mode === 'point') {
-          const gp = gammaToCanvas(baseGamma);
-          if (Math.hypot(p.x - cx, p.y - cy) <= R || Math.hypot(p.x - gp.x, p.y - gp.y) < 20) {
-              dragging = true; baseGamma = canvasToGamma(p.x, p.y);
-              updateInputsFromBaseGamma(); recomputeChain(); 
-              if(matchPreviewPaths.length > 0) renderMatchSuggestions();
-              render(); updateReadout(); updateUIList();
-          }
+        if (Math.hypot(p.x - cx, p.y - cy) <= R || Math.hypot(p.x - gp.x, p.y - gp.y) < 20) {
+          dragging = true;
+          baseGamma = canvasToGamma(p.x, p.y);
+          updateInputsFromBaseGamma();
+          elementPreview = null;
+          refreshAll({ recompute: true, rematch: true, list: true });
+        }
       } else {
-          if (Math.hypot(p.x - cx, p.y - cy) <= R) {
-              dragging = true; onMove(evt);
-          }
+        if (Math.hypot(p.x - cx, p.y - cy) <= R) {
+          dragging = true;
+          onMove(evt);
+        }
       }
     });
 
     window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', () => dragging = false);
+    window.addEventListener('mouseup', () => { dragging = false; });
+
+    document.querySelectorAll('input[name="mouseMode"]').forEach(el => {
+      el.addEventListener('change', () => {
+        setDragHint();
+      });
+    });
 
     showLabelsCb.addEventListener('change', render);
 
-    // --- Action Buttons ---
+    elemTypeEl.addEventListener('change', () => {
+      setElemUnitByType();
+      updatePreviewFromEditor();
+    });
+
+    [elemValueEl, elemUnitEl].forEach(el => {
+      el.addEventListener('input', updatePreviewFromEditor);
+    });
+
+    [freqEl, z0El].forEach(el => {
+      el.addEventListener('input', () => {
+        if (elementPreview) elementPreview = computeElementPreview();
+        refreshAll({ recompute: true, rematch: true, list: true });
+      });
+    });
+
     addCompBtn.addEventListener('click', () => {
       if (!elementPreview) elementPreview = computeElementPreview();
       if (!elementPreview) return;
-
       components.push({
-          type: elementPreview.type, valSI: elementPreview.valSI,
-          unit: elementPreview.unit, value: elementPreview.value,
-          kindStr: elementPreview.kindStr, desc: elementPreview.desc
+        type: elementPreview.type,
+        valSI: elementPreview.valSI,
+        unit: elementPreview.unit,
+        value: elementPreview.value,
+        kindStr: elementPreview.kindStr,
+        desc: elementPreview.desc
       });
-      elementPreview = null; recomputeChain(); 
-      if(matchPreviewPaths.length > 0) renderMatchSuggestions();
-      render(); updateReadout(); updateUIList();
+      elementPreview = null;
+      refreshAll({ recompute: true, rematch: true, list: true });
     });
 
     undoCompBtn.addEventListener('click', () => {
-        if (components.length === 0) return;
-        components.pop(); elementPreview = null; recomputeChain(); 
-        if(matchPreviewPaths.length > 0) renderMatchSuggestions();
-        render(); updateReadout(); updateUIList();
+      if (components.length === 0) return;
+      components.pop();
+      elementPreview = null;
+      refreshAll({ recompute: true, rematch: true, list: true });
     });
 
     clearAllCompBtn.addEventListener('click', () => {
-        components = []; elementPreview = null; 
-        if(matchPreviewPaths.length > 0) renderMatchSuggestions();
-        render(); updateReadout(); updateUIList();
+      components = [];
+      elementPreview = null;
+      refreshAll({ recompute: true, rematch: true, list: true });
     });
 
     applyBtn.addEventListener('click', applyBaseInputs);
     resetBtn.addEventListener('click', () => {
-      realEl.value = '25.000'; imagEl.value = '25.000'; z0El.value = '50.000'; freqEl.value = '2.450';
+      realEl.value = '25';
+      imagEl.value = '25';
+      z0El.value = '50';
+      freqEl.value = '2.45';
+      elemTypeEl.value = 'seriesL';
+      elemValueEl.value = '1';
+      elemUnitEl.value = 'nH';
       document.querySelector('input[name="mouseMode"][value="point"]').checked = true;
-      components = []; matchPreviewPaths = []; matchSuggestionsEl.innerHTML = '<div class="note" style="margin-top:0;">尚未產生建議。</div>';
-      updateUIList(); applyBaseInputs();
+      components = [];
+      elementPreview = null;
+      matchPreviewPaths = [];
+      selectedMatchIdx = -1;
+      matchSuggestionsEl.innerHTML = '<div class="note" style="margin-top:0;">尚未產生建議。</div>';
+      setApplyMatchButtons();
+      setDragHint();
+      applyBaseInputs();
     });
 
     suggestMatchBtn.addEventListener('click', renderMatchSuggestions);
-    clearMatchBtn.addEventListener('click', () => { 
-        matchPreviewPaths = []; selectedMatchIdx = -1;
-        matchSuggestionsEl.innerHTML = '<div class="note" style="margin-top:0;">尚未產生建議。</div>'; 
-        render(); 
+    clearMatchBtn.addEventListener('click', () => {
+      matchPreviewPaths = [];
+      selectedMatchIdx = -1;
+      matchSuggestionsEl.innerHTML = '<div class="note" style="margin-top:0;">尚未產生建議。</div>';
+      setApplyMatchButtons();
+      render();
     });
 
-    [elemTypeEl, elemValueEl, elemUnitEl].forEach(el => {
-      el.addEventListener('input', () => { 
-          elementPreview = computeElementPreview(); 
-          render(); updateReadout(); 
-      });
-    });
-    
-    [freqEl, z0El].forEach(el => {
-      el.addEventListener('input', () => { 
-          if(elementPreview) elementPreview = computeElementPreview(); 
-          recomputeChain(); 
-          if(matchPreviewPaths.length > 0) renderMatchSuggestions();
-          render(); updateReadout(); updateUIList();
-      });
-    });
+    applyMatchBtn.addEventListener('click', () => applySelectedMatch(false));
+    replaceMatchBtn.addEventListener('click', () => applySelectedMatch(true));
 
-    realEl.addEventListener('keydown', e => { if(e.key==='Enter') applyBaseInputs(); });
-    imagEl.addEventListener('keydown', e => { if(e.key==='Enter') applyBaseInputs(); });
+    realEl.addEventListener('keydown', e => { if (e.key === 'Enter') applyBaseInputs(); });
+    imagEl.addEventListener('keydown', e => { if (e.key === 'Enter') applyBaseInputs(); });
 
-    applyBaseInputs(); // Init
+    setDragHint();
+    applyBaseInputs();
   </script>
 </body>
 </html>
