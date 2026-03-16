@@ -36,8 +36,7 @@
       padding: 12px 20px;
     }
 
-    h1 { margin: 0 0 4px; font-size: 22px; }
-    .sub { color: var(--muted); margin-bottom: 12px; font-size: 13px; }
+    h1 { margin: 0 0 12px; font-size: 22px; }
 
     .layout {
       display: grid;
@@ -117,29 +116,30 @@
     .results-table .k { color: var(--muted); font-size: 11px; }
     .results-table .full-row { grid-column: 2 / 5; }
 
+    /* 優化後的單行模式選擇列 */
     .mode-radios {
       display: flex;
-      gap: 6px;
-      font-size: 12px;
-      flex-wrap: wrap;
-      background: rgba(0,0,0,0.2);
-      padding: 8px;
-      border-radius: 6px;
-      margin-bottom: 10px;
-    }
-    .mode-radios label { cursor: pointer; display:flex; align-items:center; gap: 2px; }
-    
-    .inline-input {
-      background: rgba(0,0,0,0.4);
-      border: 1px solid rgba(255,255,255,0.2);
-      color: #fff;
-      padding: 2px 6px;
-      border-radius: 4px;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: nowrap; /* 強制不換行 */
+      gap: 4px;
       font-size: 11px;
-      text-align: center;
-      height: 22px;
+      background: rgba(0,0,0,0.2);
+      padding: 6px 8px;
+      border-radius: 6px;
+      margin-bottom: 8px;
     }
-    .inline-input:focus { border-color: var(--accent); outline: none; }
+    .mode-radios label { 
+      cursor: pointer; 
+      display: flex; 
+      align-items: center; 
+      gap: 2px; 
+      white-space: nowrap; 
+    }
+    .mode-radios input[type="radio"] {
+      width: auto;
+      margin: 0;
+    }
 
     .hint-bar {
       margin-top: 8px;
@@ -149,7 +149,7 @@
       padding: 6px 8px;
       font-size: 12px;
       color: var(--muted);
-      min-height: 32px;
+      min-height: 30px;
       display: flex;
       align-items: center;
     }
@@ -245,7 +245,7 @@
       vertical-align: middle;
     }
 
-    /* 懸浮設定面板 (右下角縮小版) */
+    /* 懸浮設定面板 (右下角) */
     .floating-options {
       position: absolute; 
       bottom: 12px; 
@@ -273,6 +273,17 @@
       height: 13px;
       margin: 0;
       padding: 0;
+    }
+    .floating-options .inline-input {
+      background: rgba(0,0,0,0.5);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #fff;
+      padding: 0 4px;
+      border-radius: 3px;
+      font-size: 10px;
+      text-align: center;
+      height: 16px;
+      width: 40px;
     }
 
     /* 懸浮阻抗資訊面板 (左下角) */
@@ -315,18 +326,17 @@
 <body>
   <div class="wrap">
     <h1>Compact L-Match & Smith Chart Tool</h1>
-    <div class="sub">優化：將起點/終點 Z 資訊改為左下角獨立懸浮面板，完美避開史密斯圖本體。</div>
 
     <div class="layout">
       <div class="left-panel">
         <div class="card">
           <div class="mode-radios">
-            <label><input type="radio" name="mouseMode" value="point" checked> 📍 起點</label>
-            <label><input type="radio" name="mouseMode" value="series"> ➰ 串 L/C</label>
-            <label><input type="radio" name="mouseMode" value="shunt"> ➿ 並 L/C</label>
-            <label><input type="radio" name="mouseMode" value="seriesR"> 〰 串聯 R</label>
-            <label><input type="radio" name="mouseMode" value="shuntR"> ⸎ 並聯 R</label>
-            <label><input type="radio" name="mouseMode" value="transformer"> 🗜 變壓器 1:N</label>
+            <label><input type="radio" name="mouseMode" value="point" checked>📍起點</label>
+            <label><input type="radio" name="mouseMode" value="series">➰串 L/C</label>
+            <label><input type="radio" name="mouseMode" value="shunt">➿並 L/C</label>
+            <label><input type="radio" name="mouseMode" value="seriesR">〰串聯 R</label>
+            <label><input type="radio" name="mouseMode" value="shuntR">⸎並聯 R</label>
+            <label><input type="radio" name="mouseMode" value="transformer">🗜變壓器</label>
           </div>
 
           <div class="grid grid-4">
@@ -406,7 +416,7 @@
           </div>
         </div>
 
-        <div class="card results" style="flex-grow: 1;">
+        <div class="card results" id="terminalZCard" style="flex-grow: 1;">
           <h2>
             終端結果 (Terminal Z)
             <span id="previewIndicator" style="color:var(--ok); font-size:12px; font-weight:normal; display:none;">(拖曳預覽中...)</span>
@@ -531,7 +541,6 @@
     const H = canvas.height;
     const cx = W / 2;
     const cy = H / 2;
-    // 將半徑稍微縮小，確保左下角懸浮框與圓形邊界保持距離
     const R = Math.min(W, H) * 0.44;
 
     let baseGamma = { re: 0, im: 0 };
@@ -1079,7 +1088,6 @@
         drawArc(cx + R, cy + R / x, Math.abs(R / x), 'rgba(123,223,242,0.6)', Math.abs(x) === 1 ? 1.6 : 1);
       });
 
-      // --- Q & RL 線條繪製 (獨立處理) ---
       if (showRLCb.checked) {
         const rlStr = rlValuesInput.value.trim();
         const rlValues = rlStr ? rlStr.split(/\s+/).map(Number).filter(n => !isNaN(n) && n > 0) : [];
@@ -1135,7 +1143,6 @@
             ctx.fillText('Q='+q, px2, py2 + 10);
         });
       }
-
       ctx.restore();
 
       ctx.beginPath();
@@ -1329,6 +1336,18 @@
       ctx.restore();
     }
 
+    function updateStartEndBox() {
+      const z0 = getZ0();
+      const activeGamma = elementPreview ? elementPreview.gamma1 : getEffectiveGamma();
+      const sZNorm = gammaToZNorm(baseGamma);
+      const sZ = { re: sZNorm.re * z0, im: sZNorm.im * z0 };
+      const eZNorm = gammaToZNorm(activeGamma);
+      const eZ = { re: eZNorm.re * z0, im: eZNorm.im * z0 };
+
+      startZText.textContent = fmtComplex(sZ, 'Ω');
+      endZText.textContent = fmtComplex(eZ, 'Ω');
+    }
+
     function render() {
       ctx.clearRect(0, 0, W, H);
       drawSmithGrid();
@@ -1336,11 +1355,16 @@
       drawBasePoint();
     }
 
-    function updateReadoutAndBoxes() {
+    function updateInputsFromBaseGamma() {
+      const z0 = getZ0();
+      const zNorm = gammaToZNorm(baseGamma);
+      realEl.value = fmt(zNorm.re * z0, 3);
+      imagEl.value = fmt(zNorm.im * z0, 3);
+    }
+
+    function updateReadout() {
       const z0 = getZ0();
       const activeGamma = elementPreview ? elementPreview.gamma1 : getEffectiveGamma();
-      
-      // Update left panel Terminal Z
       const zNorm = gammaToZNorm(activeGamma);
       const mag = cAbs(activeGamma);
       const ang = cAngDeg(activeGamma);
@@ -1360,19 +1384,15 @@
       zMagText.textContent = Number.isFinite(zMag) ? fmt(zMag, 3) : '∞';
       yText.textContent = Y ? fmtComplex(Y, 'S') : '∞';
       previewIndicator.style.display = elementPreview ? 'inline' : 'none';
-
-      // Update floating Z box in bottom left
-      const sZNorm = gammaToZNorm(baseGamma);
-      const sZ = { re: sZNorm.re * z0, im: sZNorm.im * z0 };
-      startZText.textContent = fmtComplex(sZ, 'Ω');
-      endZText.textContent = fmtComplex(Z, 'Ω');
+      
+      updateStartEndBox();
     }
 
     function refreshAll({ recompute = true, rematch = false, list = true } = {}) {
       if (recompute) recomputeChain();
       if (rematch && matchPreviewPaths.length > 0) renderMatchSuggestions();
       if (list) updateUIList();
-      updateReadoutAndBoxes();
+      updateReadout();
       render(); 
     }
 
@@ -1421,7 +1441,7 @@
     function updatePreviewFromEditor() {
       elementPreview = computeElementPreview();
       render();
-      updateReadoutAndBoxes();
+      updateReadout();
     }
 
     function projectToSeriesLC(startG, mouseG) {
@@ -1555,7 +1575,7 @@
       updateEditorFromDraggedMode(mode, mouseG);
       elementPreview = computeElementPreview();
       render();
-      updateReadoutAndBoxes();
+      updateReadout();
     }
 
     canvas.addEventListener('mousedown', (evt) => {
