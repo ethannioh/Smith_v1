@@ -128,6 +128,18 @@
       margin-bottom: 10px;
     }
     .mode-radios label { cursor: pointer; display:flex; align-items:center; gap: 2px; }
+    
+    .inline-input {
+      background: rgba(0,0,0,0.4);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #fff;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      text-align: center;
+      height: 22px;
+    }
+    .inline-input:focus { border-color: var(--accent); outline: none; }
 
     .hint-bar {
       margin-top: 8px;
@@ -233,45 +245,66 @@
       vertical-align: middle;
     }
 
-    /* 懸浮設定面板 (縮小版) */
+    /* 懸浮設定面板 (右下角縮小版) */
     .floating-options {
       position: absolute; 
       bottom: 12px; 
       right: 12px; 
-      background: rgba(18, 25, 51, 0.75); 
-      padding: 6px 8px; 
-      border-radius: 6px; 
+      background: rgba(18, 25, 51, 0.85); 
+      padding: 8px 10px; 
+      border-radius: 8px; 
       border: 1px solid rgba(255,255,255,0.15); 
       display: flex; 
       flex-direction: column; 
-      gap: 5px; 
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3); 
+      gap: 6px; 
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4); 
       z-index: 10;
       backdrop-filter: blur(4px);
     }
     .floating-options label {
-      font-size: 10px;
+      font-size: 11px;
       cursor: pointer;
       display: flex;
       align-items: center;
       gap: 4px;
     }
     .floating-options input[type="checkbox"] {
-      width: 12px;
-      height: 12px;
+      width: 13px;
+      height: 13px;
       margin: 0;
       padding: 0;
     }
-    .floating-options .inline-input {
-      background: rgba(0,0,0,0.5);
-      border: 1px solid rgba(255,255,255,0.2);
+
+    /* 懸浮阻抗資訊面板 (左下角) */
+    .floating-z-box {
+      position: absolute;
+      bottom: 12px;
+      left: 12px;
+      background: rgba(18, 25, 51, 0.85);
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.15);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      z-index: 10;
+      backdrop-filter: blur(4px);
+      min-width: 250px;
+    }
+    .floating-z-box .z-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .floating-z-box .z-label {
+      font-weight: bold;
+      font-size: 13px;
+    }
+    .floating-z-box .z-value {
+      font-family: monospace;
+      font-size: 13px;
       color: #fff;
-      padding: 0 4px;
-      border-radius: 3px;
-      font-size: 10px;
-      text-align: center;
-      height: 16px;
-      width: 40px;
     }
 
     @media (max-width: 980px) {
@@ -282,7 +315,7 @@
 <body>
   <div class="wrap">
     <h1>Compact L-Match & Smith Chart Tool</h1>
-    <div class="sub">已將輔助線設定面板縮小化並半透明化，防止遮擋圖表。</div>
+    <div class="sub">優化：將起點/終點 Z 資訊改為左下角獨立懸浮面板，完美避開史密斯圖本體。</div>
 
     <div class="layout">
       <div class="left-panel">
@@ -393,7 +426,7 @@
         </div>
       </div>
 
-      <div class="card" style="padding: 10px; display: flex; flex-direction: column; position: relative;">
+      <div class="card" style="padding: 10px; display: flex; flex-direction: column; position: relative; overflow: hidden;">
         <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center;">
           <canvas id="smithCanvas" width="900" height="900"></canvas>
         </div>
@@ -413,17 +446,30 @@
           <div style="width: 100%; height: 1px; background: rgba(255,255,255,0.15);"></div>
           <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
             <label style="color:var(--warn); font-weight:bold;">
-              <input type="checkbox" id="showQCb" checked> 顯示 Q 圓
+              <input type="checkbox" id="showQCb"> 顯示 Q 圓
             </label>
             <input type="text" id="qValuesInput" class="inline-input" value="1 2" placeholder="1 2">
           </div>
           <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
             <label style="color:#c084fc; font-weight:bold;">
-              <input type="checkbox" id="showRLCb" checked> 顯示 RL(dB)
+              <input type="checkbox" id="showRLCb"> 顯示 RL(dB)
             </label>
             <input type="text" id="rlValuesInput" class="inline-input" value="6 10" placeholder="6 10">
           </div>
         </div>
+
+        <div class="floating-z-box">
+          <div class="z-row">
+            <span class="z-label" style="color:#ff6b6b;">起點 Z</span>
+            <span class="z-value" id="startZText">-</span>
+          </div>
+          <div style="width: 100%; height: 1px; background: rgba(255,255,255,0.15); margin: 2px 0;"></div>
+          <div class="z-row">
+            <span class="z-label" style="color:#7bdff2;">終點 Z</span>
+            <span class="z-value" id="endZText">-</span>
+          </div>
+        </div>
+
       </div>
     </div>
   </div>
@@ -472,18 +518,21 @@
     const yText = document.getElementById('yText');
     const previewIndicator = document.getElementById('previewIndicator');
     
-    // Checkboxes & Inputs for custom drawing
     const showLabelsCb = document.getElementById('showLabelsCb');
     const showQCb = document.getElementById('showQCb');
     const qValuesInput = document.getElementById('qValuesInput');
     const showRLCb = document.getElementById('showRLCb');
     const rlValuesInput = document.getElementById('rlValuesInput');
 
+    const startZText = document.getElementById('startZText');
+    const endZText = document.getElementById('endZText');
+
     const W = canvas.width;
     const H = canvas.height;
     const cx = W / 2;
     const cy = H / 2;
-    const R = Math.min(W, H) * 0.45;
+    // 將半徑稍微縮小，確保左下角懸浮框與圓形邊界保持距離
+    const R = Math.min(W, H) * 0.44;
 
     let baseGamma = { re: 0, im: 0 };
     let components = [];
@@ -548,6 +597,14 @@
       const av = Math.abs(v);
       if (av !== 0 && (av >= 1e4 || av < 1e-3)) return v.toExponential(3);
       return Number(v.toFixed(digits)).toString();
+    }
+
+    function fmt2(v) {
+      if (!Number.isFinite(v)) return '∞';
+      const av = Math.abs(v);
+      if (av === 0) return '0';
+      if (av >= 1e4 || av < 1e-3) return v.toExponential(2).replace('e+', 'e');
+      return Number(v.toFixed(2)).toString();
     }
 
     function fmtComplex(a, unit='') {
@@ -1095,7 +1152,6 @@
       ctx.fillText('+jX', cx, cy - R - 10);
       ctx.fillText('-jX', cx, cy + R + 18);
 
-      // --- Z阻抗文字標籤 ---
       if (showLabelsCb.checked) {
         const z0 = getZ0();
         ctx.save();
@@ -1140,11 +1196,11 @@
 
       let labelStr = '';
       if (comp.type === 'transformer') {
-        labelStr = `N=${fmt(comp.value, 2)}`;
+        labelStr = `N=${fmt2(comp.value)}`;
       } else {
         const compStr = comp.type.endsWith('L') ? 'L' : (comp.type.endsWith('C') ? 'C' : 'R');
         const unitStr = comp.unit === 'ohm' ? 'Ω' : (comp.unit === 'kOhm' ? 'kΩ' : comp.unit);
-        labelStr = `${compStr}=${fmt(comp.value, 2)}${unitStr}`;
+        labelStr = `${compStr}=${fmt2(comp.value)}${unitStr}`;
       }
 
       ctx.save();
@@ -1273,87 +1329,18 @@
       ctx.restore();
     }
 
-    function drawStartEndBox() {
-      const z0 = getZ0();
-      const activeGamma = elementPreview ? elementPreview.gamma1 : getEffectiveGamma();
-      const sZNorm = gammaToZNorm(baseGamma);
-      const sZ = { re: sZNorm.re * z0, im: sZNorm.im * z0 };
-      const eZNorm = gammaToZNorm(activeGamma);
-      const eZ = { re: eZNorm.re * z0, im: eZNorm.im * z0 };
-
-      const startText = fmtComplex(sZ, 'Ω');
-      const endText = fmtComplex(eZ, 'Ω');
-
-      ctx.save();
-      const boxW = 260;
-      const boxH = 60;
-      const padding = 12;
-      const bx = 16;
-      const by = H - boxH - 16;
-
-      ctx.fillStyle = 'rgba(18, 25, 51, 0.9)';
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      const rr = 8;
-      ctx.moveTo(bx + rr, by);
-      ctx.lineTo(bx + boxW - rr, by);
-      ctx.quadraticCurveTo(bx + boxW, by, bx + boxW, by + rr);
-      ctx.lineTo(bx + boxW, by + boxH - rr);
-      ctx.quadraticCurveTo(bx + boxW, by + boxH, bx + boxW - rr, by + boxH);
-      ctx.lineTo(bx + rr, by + boxH);
-      ctx.quadraticCurveTo(bx, by + boxH, bx, by + boxH - rr);
-      ctx.lineTo(bx, by + rr);
-      ctx.quadraticCurveTo(bx, by, bx + rr, by);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.moveTo(bx + padding, by + boxH / 2);
-      ctx.lineTo(bx + boxW - padding, by + boxH / 2);
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-      ctx.stroke();
-
-      ctx.textBaseline = 'middle';
-      ctx.font = 'bold 13px Arial';
-      ctx.textAlign = 'left';
-      ctx.fillStyle = '#ff6b6b';
-      ctx.fillText('起點 Z', bx + padding, by + boxH / 4);
-      ctx.font = '13px monospace';
-      ctx.textAlign = 'right';
-      ctx.fillStyle = '#fff';
-      ctx.fillText(startText, bx + boxW - padding, by + boxH / 4);
-
-      ctx.font = 'bold 13px Arial';
-      ctx.textAlign = 'left';
-      ctx.fillStyle = '#7bdff2';
-      ctx.fillText('終點 Z', bx + padding, by + boxH * 3 / 4);
-      ctx.font = '13px monospace';
-      ctx.textAlign = 'right';
-      ctx.fillStyle = '#fff';
-      ctx.fillText(endText, bx + boxW - padding, by + boxH * 3 / 4);
-      ctx.restore();
-    }
-
     function render() {
       ctx.clearRect(0, 0, W, H);
       drawSmithGrid();
       drawChainAndPreview();
       drawBasePoint();
-      drawStartEndBox();
     }
 
-    function updateInputsFromBaseGamma() {
-      const z0 = getZ0();
-      const zNorm = gammaToZNorm(baseGamma);
-      realEl.value = fmt(zNorm.re * z0, 3);
-      imagEl.value = fmt(zNorm.im * z0, 3);
-    }
-
-    function updateReadout() {
+    function updateReadoutAndBoxes() {
       const z0 = getZ0();
       const activeGamma = elementPreview ? elementPreview.gamma1 : getEffectiveGamma();
+      
+      // Update left panel Terminal Z
       const zNorm = gammaToZNorm(activeGamma);
       const mag = cAbs(activeGamma);
       const ang = cAngDeg(activeGamma);
@@ -1373,15 +1360,25 @@
       zMagText.textContent = Number.isFinite(zMag) ? fmt(zMag, 3) : '∞';
       yText.textContent = Y ? fmtComplex(Y, 'S') : '∞';
       previewIndicator.style.display = elementPreview ? 'inline' : 'none';
+
+      // Update floating Z box in bottom left
+      const sZNorm = gammaToZNorm(baseGamma);
+      const sZ = { re: sZNorm.re * z0, im: sZNorm.im * z0 };
+      startZText.textContent = fmtComplex(sZ, 'Ω');
+      endZText.textContent = fmtComplex(Z, 'Ω');
     }
 
     function refreshAll({ recompute = true, rematch = false, list = true } = {}) {
       if (recompute) recomputeChain();
       if (rematch && matchPreviewPaths.length > 0) renderMatchSuggestions();
-      render();
-      updateReadout();
       if (list) updateUIList();
+      updateReadoutAndBoxes();
+      render(); 
     }
+
+    window.addEventListener('resize', () => {
+       render();
+    });
 
     function applyBaseInputs() {
       const r = parseFloat(realEl.value) || 0;
@@ -1424,7 +1421,7 @@
     function updatePreviewFromEditor() {
       elementPreview = computeElementPreview();
       render();
-      updateReadout();
+      updateReadoutAndBoxes();
     }
 
     function projectToSeriesLC(startG, mouseG) {
@@ -1546,7 +1543,10 @@
 
       if (mode === 'point') {
         baseGamma = mouseG;
-        updateInputsFromBaseGamma();
+        const z0 = getZ0();
+        const zNorm = gammaToZNorm(baseGamma);
+        realEl.value = fmt(zNorm.re * z0, 3);
+        imagEl.value = fmt(zNorm.im * z0, 3);
         elementPreview = null;
         refreshAll({ recompute: true, rematch: true, list: true });
         return;
@@ -1555,7 +1555,7 @@
       updateEditorFromDraggedMode(mode, mouseG);
       elementPreview = computeElementPreview();
       render();
-      updateReadout();
+      updateReadoutAndBoxes();
     }
 
     canvas.addEventListener('mousedown', (evt) => {
@@ -1566,7 +1566,10 @@
         if (Math.hypot(p.x - cx, p.y - cy) <= R || Math.hypot(p.x - gp.x, p.y - gp.y) < 20) {
           dragging = true;
           baseGamma = canvasToGamma(p.x, p.y);
-          updateInputsFromBaseGamma();
+          const z0 = getZ0();
+          const zNorm = gammaToZNorm(baseGamma);
+          realEl.value = fmt(zNorm.re * z0, 3);
+          imagEl.value = fmt(zNorm.im * z0, 3);
           elementPreview = null;
           refreshAll({ recompute: true, rematch: true, list: true });
         }
