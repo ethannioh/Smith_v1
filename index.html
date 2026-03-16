@@ -233,6 +233,47 @@
       vertical-align: middle;
     }
 
+    /* 懸浮設定面板 (縮小版) */
+    .floating-options {
+      position: absolute; 
+      bottom: 12px; 
+      right: 12px; 
+      background: rgba(18, 25, 51, 0.75); 
+      padding: 6px 8px; 
+      border-radius: 6px; 
+      border: 1px solid rgba(255,255,255,0.15); 
+      display: flex; 
+      flex-direction: column; 
+      gap: 5px; 
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3); 
+      z-index: 10;
+      backdrop-filter: blur(4px);
+    }
+    .floating-options label {
+      font-size: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .floating-options input[type="checkbox"] {
+      width: 12px;
+      height: 12px;
+      margin: 0;
+      padding: 0;
+    }
+    .floating-options .inline-input {
+      background: rgba(0,0,0,0.5);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #fff;
+      padding: 0 4px;
+      border-radius: 3px;
+      font-size: 10px;
+      text-align: center;
+      height: 16px;
+      width: 40px;
+    }
+
     @media (max-width: 980px) {
       .layout { grid-template-columns: 1fr; }
     }
@@ -241,7 +282,7 @@
 <body>
   <div class="wrap">
     <h1>Compact L-Match & Smith Chart Tool</h1>
-    <div class="sub">已修正：匹配演算法現已完美支援並優先推薦「單元件(直接串/並聯)」的捷徑解。</div>
+    <div class="sub">已將輔助線設定面板縮小化並半透明化，防止遮擋圖表。</div>
 
     <div class="layout">
       <div class="left-panel">
@@ -253,10 +294,6 @@
             <label><input type="radio" name="mouseMode" value="seriesR"> 〰 串聯 R</label>
             <label><input type="radio" name="mouseMode" value="shuntR"> ⸎ 並聯 R</label>
             <label><input type="radio" name="mouseMode" value="transformer"> 🗜 變壓器 1:N</label>
-            <div style="width:1px; height:16px; background:rgba(255,255,255,0.2); margin: 0 4px;"></div>
-            <label style="color:var(--accent); font-weight:bold;">
-              <input type="checkbox" id="showLabelsCb" checked> 🏷 顯示格線阻抗值(Ω)
-            </label>
           </div>
 
           <div class="grid grid-4">
@@ -356,7 +393,7 @@
         </div>
       </div>
 
-      <div class="card" style="padding: 10px; display: flex; flex-direction: column;">
+      <div class="card" style="padding: 10px; display: flex; flex-direction: column; position: relative;">
         <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center;">
           <canvas id="smithCanvas" width="900" height="900"></canvas>
         </div>
@@ -367,6 +404,25 @@
           <span><span class="dot" style="background:var(--r-color)"></span>電阻 R</span>
           <span><span class="dot" style="background:var(--t-color)"></span>變壓器</span>
           <span><span class="dot" style="background:rgba(255,173,102,0.9)"></span>匹配建議</span>
+        </div>
+
+        <div class="floating-options">
+          <label style="color:var(--accent); font-weight:bold;">
+            <input type="checkbox" id="showLabelsCb" checked> 🏷 顯示格線阻抗值(Ω)
+          </label>
+          <div style="width: 100%; height: 1px; background: rgba(255,255,255,0.15);"></div>
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+            <label style="color:var(--warn); font-weight:bold;">
+              <input type="checkbox" id="showQCb" checked> 顯示 Q 圓
+            </label>
+            <input type="text" id="qValuesInput" class="inline-input" value="1 2" placeholder="1 2">
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+            <label style="color:#c084fc; font-weight:bold;">
+              <input type="checkbox" id="showRLCb" checked> 顯示 RL(dB)
+            </label>
+            <input type="text" id="rlValuesInput" class="inline-input" value="6 10" placeholder="6 10">
+          </div>
         </div>
       </div>
     </div>
@@ -415,7 +471,13 @@
     const zMagText = document.getElementById('zMagText');
     const yText = document.getElementById('yText');
     const previewIndicator = document.getElementById('previewIndicator');
+    
+    // Checkboxes & Inputs for custom drawing
     const showLabelsCb = document.getElementById('showLabelsCb');
+    const showQCb = document.getElementById('showQCb');
+    const qValuesInput = document.getElementById('qValuesInput');
+    const showRLCb = document.getElementById('showRLCb');
+    const rlValuesInput = document.getElementById('rlValuesInput');
 
     const W = canvas.width;
     const H = canvas.height;
@@ -770,7 +832,6 @@
       const sols = [];
       const w = 2 * Math.PI * freqHz;
 
-      // Topo 1: Series then Shunt
       if (gIn > EPS) {
         const D = rL / gIn - rL * rL;
         if (D >= -1e-10) {
@@ -783,7 +844,6 @@
             const bAdd = bIn - y1.im;
             const zEnd = cInv(cAdd(y1, c(0, bAdd)));
             if (!zEnd) return;
-            
             const s1 = normalizedToComponentObj(xAdd, w, z0, 'Series');
             const s2 = normalizedToComponentObj(bAdd, w, z0, 'Shunt');
             if (!s1 && !s2) return;
@@ -806,7 +866,6 @@
         }
       }
 
-      // Topo 2: Shunt then Series
       if (rIn > EPS) {
         const D = gL / rIn - gL * gL;
         if (D >= -1e-10) {
@@ -818,7 +877,6 @@
             if (!z1) return;
             const xAdd = xIn - z1.im;
             const zEnd = cAdd(z1, c(0, xAdd));
-            
             const s1 = normalizedToComponentObj(bAdd, w, z0, 'Shunt');
             const s2 = normalizedToComponentObj(xAdd, w, z0, 'Series');
             if (!s1 && !s2) return;
@@ -841,7 +899,6 @@
         }
       }
 
-      // 去除重複 (單元件匹配容易在兩種拓樸中重複)
       const uniqueSols = [];
       sols.forEach(sol => {
           const isDuplicate = uniqueSols.some(u => {
@@ -964,6 +1021,64 @@
         drawArc(cx + R, cy - R / x, Math.abs(R / x), 'rgba(123,223,242,0.6)', Math.abs(x) === 1 ? 1.6 : 1);
         drawArc(cx + R, cy + R / x, Math.abs(R / x), 'rgba(123,223,242,0.6)', Math.abs(x) === 1 ? 1.6 : 1);
       });
+
+      // --- Q & RL 線條繪製 (獨立處理) ---
+      if (showRLCb.checked) {
+        const rlStr = rlValuesInput.value.trim();
+        const rlValues = rlStr ? rlStr.split(/\s+/).map(Number).filter(n => !isNaN(n) && n > 0) : [];
+        ctx.setLineDash([4, 4]);
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = 'rgba(192, 132, 252, 0.85)';
+        rlValues.forEach(rl => {
+            const mag = Math.pow(10, -rl / 20);
+            ctx.beginPath(); ctx.arc(cx, cy, R * mag, 0, Math.PI * 2); ctx.stroke();
+        });
+
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(192, 132, 252, 0.9)';
+        ctx.font = '10px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        rlValues.forEach(rl => {
+            const mag = Math.pow(10, -rl / 20);
+            const px = cx - mag * R;
+            ctx.lineWidth = 2.5; ctx.strokeStyle = '#0b1020';
+            ctx.strokeText(rl + 'dB', px + 15, cy - 8);
+            ctx.fillText(rl + 'dB', px + 15, cy - 8);
+        });
+      }
+
+      if (showQCb.checked) {
+        const qStr = qValuesInput.value.trim();
+        const qValues = qStr ? qStr.split(/\s+/).map(Number).filter(n => !isNaN(n) && n > 0) : [];
+        ctx.setLineDash([4, 4]);
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = 'rgba(251, 191, 36, 0.85)';
+        qValues.forEach(q => {
+            const rad = R * Math.sqrt(1 + 1 / (q * q));
+            ctx.beginPath(); ctx.arc(cx, cy + R / q, rad, 0, Math.PI * 2); ctx.stroke();
+            ctx.beginPath(); ctx.arc(cx, cy - R / q, rad, 0, Math.PI * 2); ctx.stroke();
+        });
+
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(251, 191, 36, 0.9)';
+        ctx.font = '10px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        qValues.forEach(q => {
+            const u = (q * q) / (4 + q * q);
+            const v = (2 * q) / (4 + q * q);
+            const px1 = cx + u * R, py1 = cy - v * R;
+            const px2 = cx + u * R, py2 = cy + v * R;
+            
+            ctx.lineWidth = 2.5; ctx.strokeStyle = '#0b1020';
+            ctx.strokeText('Q='+q, px1, py1 - 10);
+            ctx.fillText('Q='+q, px1, py1 - 10);
+            ctx.strokeText('Q='+q, px2, py2 + 10);
+            ctx.fillText('Q='+q, px2, py2 + 10);
+        });
+      }
+
       ctx.restore();
 
       ctx.beginPath();
@@ -980,6 +1095,7 @@
       ctx.fillText('+jX', cx, cy - R - 10);
       ctx.fillText('-jX', cx, cy + R + 18);
 
+      // --- Z阻抗文字標籤 ---
       if (showLabelsCb.checked) {
         const z0 = getZ0();
         ctx.save();
@@ -1472,6 +1588,10 @@
     });
 
     showLabelsCb.addEventListener('change', render);
+    showQCb.addEventListener('change', render);
+    qValuesInput.addEventListener('input', render);
+    showRLCb.addEventListener('change', render);
+    rlValuesInput.addEventListener('input', render);
 
     elemTypeEl.addEventListener('change', () => {
       setElemUnitByType();
