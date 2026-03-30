@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Compact L-Match & Smith Chart Tool — Fixed</title>
+  <title>Compact L-Match & Smith Chart Tool — Auto Match Upgraded</title>
   <style>
     :root {
       --bg: #0b1020;
@@ -116,12 +116,11 @@
     .results-table .k { color: var(--muted); font-size: 11px; }
     .results-table .full-row { grid-column: 2 / 5; }
 
-    /* 優化後的單行模式選擇列 */
     .mode-radios {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      flex-wrap: nowrap; /* 強制不換行 */
+      flex-wrap: nowrap;
       gap: 4px;
       font-size: 11px;
       background: rgba(0,0,0,0.2);
@@ -245,7 +244,6 @@
       vertical-align: middle;
     }
 
-    /* 懸浮設定面板 (右下角) */
     .floating-options {
       position: absolute; 
       bottom: 12px; 
@@ -286,7 +284,6 @@
       width: 40px;
     }
 
-    /* 懸浮阻抗資訊面板 (左下角) */
     .floating-z-box {
       position: absolute;
       bottom: 12px;
@@ -325,7 +322,7 @@
 </head>
 <body>
   <div class="wrap">
-    <h1>Compact L-Match & Smith Chart Tool</h1>
+    <h1>Compact Smith Chart & Matching Tool</h1>
 
     <div class="layout">
       <div class="left-panel">
@@ -355,7 +352,7 @@
         </div>
 
         <div class="card">
-          <h2>匹配網路 (Ladder Network)</h2>
+          <h2>手動匹配網路 (Manual Network)</h2>
           <div class="grid grid-3">
             <div class="field">
               <label>元件型式</label>
@@ -400,15 +397,37 @@
         </div>
 
         <div class="card">
-          <div style="font-size: 13px; font-weight: bold; margin-bottom: 6px; color: var(--accent);">自動 L-Match 匹配 (至目標阻抗)</div>
+          <div style="font-size: 13px; font-weight: bold; margin-bottom: 6px; color: var(--accent);">自動網路匹配 (Auto Matching)</div>
+          
+          <div class="grid grid-2" style="margin-bottom: 8px;">
+            <div class="field">
+              <label>拓撲 (Topology)</label>
+              <select id="autoTopo">
+                <option value="all">全部 (All L/Pi/T)</option>
+                <option value="L">僅 L-Network</option>
+                <option value="Pi">僅 Pi-Network</option>
+                <option value="T">僅 T-Network</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>元件限制 (Elements)</label>
+              <select id="prefLC">
+                <option value="LC">L & C</option>
+                <option value="C">僅電容 (C only)</option>
+                <option value="L">僅電感 (L only)</option>
+              </select>
+            </div>
+          </div>
+
           <div class="grid grid-4" style="align-items: end;">
             <div class="field"><label>目標 R (Ω)</label><input id="matchTargetR" type="number" step="any" value="50" /></div>
             <div class="field"><label>目標 X (Ω)</label><input id="matchTargetX" type="number" step="any" value="0" /></div>
+            <div class="field"><label>最大 Q 值</label><input id="maxQ" type="number" step="any" value="20" /></div>
             <button id="suggestMatchBtn" class="action">尋找解</button>
-            <button id="clearMatchBtn" class="secondary">清除</button>
           </div>
-          <div class="grid grid-2" style="margin-top:8px;">
-            <button id="applyMatchBtn" class="warn" disabled>套用選定解</button>
+          <div class="grid grid-3-eq" style="margin-top:8px;">
+            <button id="clearMatchBtn" class="secondary">清除結果</button>
+            <button id="applyMatchBtn" class="warn" disabled>套用選定</button>
             <button id="replaceMatchBtn" class="warn" disabled>清空後套用</button>
           </div>
           <div id="matchSuggestions" style="margin-top:8px; max-height: 150px; overflow-y: auto;">
@@ -432,7 +451,7 @@
             <div class="k">|Z| (Ω)</div><div id="zMagText" class="full-row" style="color:var(--accent); font-weight:bold; font-size:13px;">-</div>
             <div class="k">Y (S)</div><div id="yText" class="full-row">-</div>
           </div>
-          <div class="note" style="margin-top:8px;">Q節點 = |Im(Z)| / Re(Z)，代表目前節點阻抗的反應程度，不是整體網路 loaded Q。</div>
+          <div class="note" style="margin-top:8px;">Q節點 = |Im(Z)| / Re(Z)，代表目前節點阻抗的反應程度。</div>
         </div>
       </div>
 
@@ -508,6 +527,10 @@
     const clearAllCompBtn = document.getElementById('clearAllCompBtn');
     const compListEl = document.getElementById('compList');
     const compCountText = document.getElementById('compCountText');
+
+    const autoTopoEl = document.getElementById('autoTopo');
+    const prefLCEl = document.getElementById('prefLC');
+    const maxQEl = document.getElementById('maxQ');
 
     const matchTargetREl = document.getElementById('matchTargetR');
     const matchTargetXEl = document.getElementById('matchTargetX');
@@ -874,7 +897,8 @@
       };
     }
 
-    function solveLMatch() {
+    // --- 全新整合的 Auto Match 演算法 ---
+    function solveAutoMatch() {
       const freqHz = getFreqHz();
       const z0 = getZ0();
       if (freqHz <= 0) return [];
@@ -890,97 +914,171 @@
       const y = cInv(z);
       if (!y) return [];
 
-      const rL = z.re, xL = z.im;
-      const gL = y.re, bL = y.im;
-      const gIn = yInNorm.re, bIn = yInNorm.im;
-      const rIn = zInNorm.re, xIn = zInNorm.im;
+      const w = 2 * Math.PI * freqHz;
+      const prefLC = prefLCEl.value || 'LC';
+      const autoTopo = autoTopoEl.value || 'all';
+      const maxQ = parseFloat(maxQEl.value) || 20;
 
       const sols = [];
-      const w = 2 * Math.PI * freqHz;
 
-      if (gIn > EPS) {
-        const D = rL / gIn - rL * rL;
-        if (D >= -1e-10) {
-          const root = Math.sqrt(Math.max(0, D));
-          [-1, 1].forEach(sgn => {
-            const xAdd = sgn * root - xL;
-            const z1 = cAdd(z, c(0, xAdd));
-            const y1 = cInv(z1);
-            if (!y1) return;
-            const bAdd = bIn - y1.im;
-            const zEnd = cInv(cAdd(y1, c(0, bAdd)));
-            if (!zEnd) return;
-            const s1 = normalizedToComponentObj(xAdd, w, z0, 'Series');
-            const s2 = normalizedToComponentObj(bAdd, w, z0, 'Shunt');
-            if (!s1 && !s2) return;
+      // 共用新增解答的函數
+      function tryAddSol(title, stepsData) {
+        const steps = [];
+        const stepsText = [];
+        const paths = [];
+        let currZ = z;
+        let Q_max = 0;
 
-            const stepsText = [];
-            const steps = [];
-            const paths = [];
-            if (s1) { steps.push(s1); stepsText.push(`${steps.length + 1}) ${s1.text}`); paths.push(pathSeriesReactance(z, xAdd)); }
-            if (s2) { steps.push(s2); stepsText.push(`${steps.length + 1}) ${s2.text}`); paths.push(pathShuntSusceptance(z1, bAdd)); }
+        for (let i = 0; i < stepsData.length; i++) {
+          const sd = stepsData[i];
+          if (Math.abs(sd.val) < 1e-9) continue; // 忽略數值極小的元件
 
-            sols.push({
-              title: `[解 ${sols.length + 1}] ` + (steps.length === 1 ? '單元件匹配' : '串聯 → 並聯'),
-              stepsText: stepsText,
-              steps: steps,
-              paths: paths,
-              zEnd,
-              score: Math.abs(xAdd) + Math.abs(bAdd)
+          const comp = normalizedToComponentObj(sd.val, w, z0, sd.kind);
+          if (!comp) return;
+
+          // 應用 LC 篩選限制
+          if (prefLC === 'C' && comp.type.endsWith('L')) return;
+          if (prefLC === 'L' && comp.type.endsWith('C')) return;
+
+          steps.push(comp);
+          stepsText.push(`${steps.length}) ${comp.text}`);
+
+          if (sd.kind === 'Series') {
+            paths.push(pathSeriesReactance(currZ, sd.val));
+            currZ = cAdd(currZ, c(0, sd.val));
+          } else {
+            paths.push(pathShuntSusceptance(currZ, sd.val));
+            const yi = cInv(currZ);
+            currZ = cInv(cAdd(yi, c(0, sd.val)));
+          }
+
+          const nodeQ = nodeQFromZ({ re: currZ.re * z0, im: currZ.im * z0 });
+          if (nodeQ > Q_max) Q_max = nodeQ;
+        }
+
+        if (steps.length === 0) return;
+        if (Q_max > maxQ) return; // 超出最大 Q 值則丟棄
+
+        sols.push({
+          title: `[解] ` + title,
+          stepsText: stepsText,
+          steps: steps,
+          paths: paths,
+          zEnd: currZ,
+          score: Q_max + steps.length * 10 // 評分：越少元件、Q值越小越優先
+        });
+      }
+
+      const rL = z.re, xL = z.im;
+      const gL = y.re, bL = y.im;
+      const rIn = zInNorm.re, xIn = zInNorm.im;
+      const gIn = yInNorm.re, bIn = yInNorm.im;
+
+      // 1. L-Network (串->並, 並->串)
+      if (autoTopo === 'all' || autoTopo === 'L') {
+        if (gIn > EPS) {
+          const D = rL / gIn - rL * rL;
+          if (D >= -1e-10) {
+            const root = Math.sqrt(Math.max(0, D));
+            [-1, 1].forEach(sgn => {
+              const xAdd = sgn * root - xL;
+              const z1 = cAdd(z, c(0, xAdd));
+              const y1 = cInv(z1);
+              if (!y1) return;
+              const bAdd = bIn - y1.im;
+              tryAddSol(Math.abs(xAdd) < 1e-6 || Math.abs(bAdd) < 1e-6 ? '單元件匹配' : 'L-Match (串→並)', [
+                { kind: 'Series', val: xAdd }, { kind: 'Shunt', val: bAdd }
+              ]);
             });
-          });
+          }
+        }
+        if (rIn > EPS) {
+          const D = gL / rIn - gL * gL;
+          if (D >= -1e-10) {
+            const root = Math.sqrt(Math.max(0, D));
+            [-1, 1].forEach(sgn => {
+              const bAdd = sgn * root - bL;
+              const y1 = cAdd(y, c(0, bAdd));
+              const z1 = cInv(y1);
+              if (!z1) return;
+              const xAdd = xIn - z1.im;
+              tryAddSol(Math.abs(xAdd) < 1e-6 || Math.abs(bAdd) < 1e-6 ? '單元件匹配' : 'L-Match (並→串)', [
+                { kind: 'Shunt', val: bAdd }, { kind: 'Series', val: xAdd }
+              ]);
+            });
+          }
         }
       }
 
-      if (rIn > EPS) {
-        const D = gL / rIn - gL * gL;
-        if (D >= -1e-10) {
-          const root = Math.sqrt(Math.max(0, D));
-          [-1, 1].forEach(sgn => {
-            const bAdd = sgn * root - bL;
-            const y1 = cAdd(y, c(0, bAdd));
-            const z1 = cInv(y1);
-            if (!z1) return;
-            const xAdd = xIn - z1.im;
-            const zEnd = cAdd(z1, c(0, xAdd));
-            const s1 = normalizedToComponentObj(bAdd, w, z0, 'Shunt');
-            const s2 = normalizedToComponentObj(xAdd, w, z0, 'Series');
-            if (!s1 && !s2) return;
-
-            const stepsText = [];
-            const steps = [];
-            const paths = [];
-            if (s1) { steps.push(s1); stepsText.push(`${steps.length + 1}) ${s1.text}`); paths.push(pathShuntSusceptance(z, bAdd)); }
-            if (s2) { steps.push(s2); stepsText.push(`${steps.length + 1}) ${s2.text}`); paths.push(pathSeriesReactance(z1, xAdd)); }
-
-            sols.push({
-              title: `[解 ${sols.length + 1}] ` + (steps.length === 1 ? '單元件匹配' : '並聯 → 串聯'),
-              stepsText: stepsText,
-              steps: steps,
-              paths: paths,
-              zEnd,
-              score: Math.abs(xAdd) + Math.abs(bAdd)
+      // 2. Pi-Network (並->串->並)
+      // 尋找虛擬中間阻抗 Rv < min(R_L, R_Target) 的並聯等效電阻 (亦即 maxRv < min(1/G_L, 1/G_In))
+      if (autoTopo === 'all' || autoTopo === 'Pi') {
+        const maxRv = Math.min(1/gL, 1/gIn) * 0.99;
+        [0.05, 0.2, 0.4, 0.6, 0.8].forEach(frac => {
+          const Rv = maxRv * frac;
+          if (Rv < EPS) return;
+          const D1 = gL / Rv - gL * gL;
+          const D2 = gIn / Rv - gIn * gIn;
+          if (D1 >= -1e-10 && D2 >= -1e-10) {
+            const sq1 = Math.sqrt(Math.max(0, D1));
+            const sq2 = Math.sqrt(Math.max(0, D2));
+            [-1, 1].forEach(s1 => {
+              [-1, 1].forEach(s2 => {
+                const b1 = -bL + s1 * sq1;
+                const x1 = -s1 * sq1 * Rv / gL;
+                const b2 = bIn - s2 * sq2;
+                const x2 = -s2 * sq2 * Rv / gIn;
+                const xSeries = x2 - x1;
+                tryAddSol(`Pi-Match (並→串→並)`, [
+                  { kind: 'Shunt', val: b1 }, { kind: 'Series', val: xSeries }, { kind: 'Shunt', val: b2 }
+                ]);
+              });
             });
-          });
-        }
+          }
+        });
       }
 
+      // 3. T-Network (串->並->串)
+      // 尋找虛擬中間阻抗 Rv > max(R_L, R_Target)
+      if (autoTopo === 'all' || autoTopo === 'T') {
+        const minRv = Math.max(rL, rIn) * 1.01;
+        [1.2, 2.0, 4.0, 8.0].forEach(mult => {
+          const Rv = minRv * mult;
+          const D1 = rL * Rv - rL * rL;
+          const D2 = rIn * Rv - rIn * rIn;
+          if (D1 >= -1e-10 && D2 >= -1e-10) {
+            const sq1 = Math.sqrt(Math.max(0, D1));
+            const sq2 = Math.sqrt(Math.max(0, D2));
+            [-1, 1].forEach(s1 => {
+              [-1, 1].forEach(s2 => {
+                const x1 = -xL + s1 * sq1;
+                const b1 = -s1 * sq1 / (rL * Rv);
+                const x2 = xIn - s2 * sq2;
+                const b2 = -s2 * sq2 / (rIn * Rv);
+                const bShunt = b2 - b1;
+                tryAddSol(`T-Match (串→並→串)`, [
+                  { kind: 'Series', val: x1 }, { kind: 'Shunt', val: bShunt }, { kind: 'Series', val: x2 }
+                ]);
+              });
+            });
+          }
+        });
+      }
+
+      // 去重與排序
       const uniqueSols = [];
       sols.forEach(sol => {
-          const isDuplicate = uniqueSols.some(u => {
-              if (u.steps.length !== sol.steps.length) return false;
-              if (u.steps.length === 1) {
-                  return u.steps[0].type === sol.steps[0].type && Math.abs(u.steps[0].value - sol.steps[0].value) < 1e-6;
-              }
-              return false; 
-          });
-          if (!isDuplicate) {
-              sol.title = `[解 ${uniqueSols.length + 1}] ` + (sol.steps.length === 1 ? '單元件直接匹配' : sol.title.split('] ')[1]);
-              uniqueSols.push(sol);
-          }
+        const isDuplicate = uniqueSols.some(u => {
+          if (u.steps.length !== sol.steps.length) return false;
+          return u.steps.every((s, idx) => s.type === sol.steps[idx].type && Math.abs(s.value - sol.steps[idx].value) < (s.value * 0.01 + 1e-6));
+        });
+        if (!isDuplicate) {
+          sol.title = sol.title.replace(/\[解\]/, `[解 ${uniqueSols.length + 1}]`);
+          uniqueSols.push(sol);
+        }
       });
 
-      return uniqueSols.sort((a, b) => a.score - b.score);
+      return uniqueSols.sort((a, b) => a.score - b.score).slice(0, 15);
     }
 
     function setApplyMatchButtons() {
@@ -998,13 +1096,13 @@
     }
 
     function renderMatchSuggestions() {
-      const sols = solveLMatch();
+      const sols = solveAutoMatch();
       matchPreviewPaths = sols;
       selectedMatchIdx = -1;
       setApplyMatchButtons();
 
       if (!sols.length) {
-        matchSuggestionsEl.innerHTML = '<div class="note" style="margin-top:0;">無法計算兩元件 L-Match，請檢查目標值與目前節點位置。</div>';
+        matchSuggestionsEl.innerHTML = '<div class="note" style="margin-top:0;">目前條件下無符合建議，請調整「限制條件」、「目標阻抗」或放寬「最大 Q 值」。</div>';
         render();
         return;
       }
